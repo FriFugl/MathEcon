@@ -91,6 +91,16 @@ def _short_rate_to_swap_rate_vasicek(
     b: float,
     sigma: float,
 ) -> pd.DataFrame:
+    """
+    Convert short rates in a Vasicek model to swap rates.
+
+    short_rates: Simulated short rates.
+    expiry: Years until expiry. Equivalent to T_N.
+    exercise_dates: List of dates for which swap rates should be calculated. Each date is Equivalent to T_n.
+    a: Speed of reversion.
+    b: Long term mean.
+    sigma: Volatility.
+    """
 
     swap_rates = {}
     accrual_factors = {}

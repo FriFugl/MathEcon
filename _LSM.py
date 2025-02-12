@@ -10,6 +10,14 @@ def _LSM_method(
     strike: float,
     N: int,
 ) -> pd.DataFrame:
+    """
+    Perform classic Longstaff-Schwartz algorithm for a swaption.
+
+    short_rates: Simulated short rates.
+    swap_rates: Simulated swap rates corresponding to the short_rates
+    strike: Strike of Swaption.
+    N: Number of simulated tracjetories.
+    """
 
     payoffs = _calculate_swaption_payoffs(
         swap_rates=swap_rates, accrual_factors=accrual_factors, strike=strike
