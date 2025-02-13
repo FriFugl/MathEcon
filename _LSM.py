@@ -24,13 +24,14 @@ def _LSM_method(
     )
 
     for i, col in enumerate(reversed(payoffs.columns)):
+        print(col)
         if i == 0:
             cashflows = payoffs[col]
             continue
 
         discount = np.exp(
             -short_rates[col].iloc[0]*(short_rates[col+1]-short_rates[col])
-        )  # NEEDS TO BE FIXED FOR TIME INTERVAL FOR DISCOUNTING
+        )
 
         itm_paths = payoffs.index[payoffs[col] > 0].tolist()
         if itm_paths == []:
@@ -44,7 +45,7 @@ def _LSM_method(
             (np.ones(len(itm_swap_rates)), itm_swap_rates, itm_swap_rates**2)
         )
         beta, residuals, rank, s = np.linalg.lstsq(X, itm_cashflows, rcond=None)
-
+        print(beta)
         continuation_values = (
             beta[0] + beta[1] * itm_swap_rates + beta[2] * itm_swap_rates**2
         )
