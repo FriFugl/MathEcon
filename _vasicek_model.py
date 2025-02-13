@@ -6,12 +6,13 @@ from _calculate_swap_and_swaption_details import _compute_swap_rate_and_accrual_
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
+
 class StochasticProcess(ABC):
     """Represente a Stochastic process"""
 
     @abstractmethod
-    def simulate(self):
-        ...
+    def simulate(self): ...
+
 
 @dataclass
 class VasicekModel(StochasticProcess):
@@ -24,7 +25,7 @@ class VasicekModel(StochasticProcess):
     sigma: float
 
     def simulate(
-            self, r_0: float, T: int, M: int, method: str, N: int
+        self, r_0: float, T: int, M: int, N: int, method: str, seed: int
     ) -> pd.DataFrame:
         """
         r_0: Initial short rate.
@@ -33,6 +34,8 @@ class VasicekModel(StochasticProcess):
         method: Method of simulation.
         N: Number of simulated paths.
         """
+        if seed is not None:
+            np.random.seed(seed)
 
         delta = T / M
 
@@ -44,17 +47,17 @@ class VasicekModel(StochasticProcess):
         if method == "exact":
             for m in range(M):
                 r[:, m + 1] = (
-                                      r[:, m] * np.exp(-self.a * delta)
-                                      + (self.b / self.a) * (1 - np.exp(-self.a * delta))
-                                      + self.sigma * np.sqrt((1 - np.exp(-2 * self.a * delta)) / (2*self.a))
-                              ) * z[:, m]
+                    r[:, m] * np.exp(-self.a * delta)
+                    + (self.b / self.a) * (1 - np.exp(-self.a * delta))
+                    + self.sigma
+                    * np.sqrt((1 - np.exp(-2 * self.a * delta)) / (2 * self.a))
+                ) * z[:, m]
 
         short_rates = pd.DataFrame(
             r, index=[i for i in range(1, N + 1)], columns=np.linspace(0, T, M + 1)
         )
 
         return short_rates
-
 
     def price_zcb(
         self,
@@ -74,9 +77,9 @@ class VasicekModel(StochasticProcess):
         A = []
         for T in maturities:
             b_t_T = (1 / self.a) * (1 - np.exp(-self.a * (T - t)))
-            a_t_T = ((b_t_T - T + t) * (self.a * self.b - 0.5 * (self.sigma**2))) / (self.a**2) - (
-                (self.sigma**2) * (b_t_T**2)
-            ) / (4 * self.a)
+            a_t_T = ((b_t_T - T + t) * (self.a * self.b - 0.5 * (self.sigma**2))) / (
+                self.a**2
+            ) - ((self.sigma**2) * (b_t_T**2)) / (4 * self.a)
 
             B.append(b_t_T)
             A.append(a_t_T)
@@ -90,7 +93,6 @@ class VasicekModel(StochasticProcess):
             zcb_prices[maturities[i]] = np.exp(A[i] - B[i] * r)
 
         return zcb_prices
-
 
     def swap_rate(
         self,
@@ -114,9 +116,7 @@ class VasicekModel(StochasticProcess):
             swap_maturities = [i for i in range(start_date, expiry + 1)]
 
             zcb_prices = self.price_zcb(
-                short_rates=short_rate,
-                t=exercise_date,
-                maturities=swap_maturities
+                short_rates=short_rate, t=exercise_date, maturities=swap_maturities
             )
 
             R, S = _compute_swap_rate_and_accrual_factor(
