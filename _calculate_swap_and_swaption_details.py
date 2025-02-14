@@ -3,7 +3,7 @@ import numpy as np
 
 
 def _compute_swap_rate_and_accrual_factor(
-    zcb_prices: pd.DataFrame, start: float, maturity: float
+    zcb_prices: pd.DataFrame, start: float, maturity: float, alpha: float,
 ) -> pd.DataFrame:
     """
     Computes the par swap rate and accrual factor.
@@ -12,7 +12,7 @@ def _compute_swap_rate_and_accrual_factor(
     start: First resettlement.
     maturity: Maturity of swap.
     """
-
+    """
     start_index = zcb_prices.columns.get_loc(start)
     maturity_index = zcb_prices.columns.get_loc(maturity)
 
@@ -20,6 +20,13 @@ def _compute_swap_rate_and_accrual_factor(
     swap_rate = (zcb_prices[start] - zcb_prices[maturity]) / accrual_factors
 
     return swap_rate, accrual_factors
+    """
+
+    accrual_factors = alpha*zcb_prices.loc[:, start:maturity].sum(axis=1)
+    swap_rates = (1 - zcb_prices[maturity]) / accrual_factors
+
+    return swap_rates, accrual_factors
+
 
 
 def _calculate_swaption_payoffs(

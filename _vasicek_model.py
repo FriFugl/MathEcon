@@ -25,7 +25,7 @@ class VasicekModel(StochasticProcess):
     sigma: float
 
     def simulate(
-        self, r_0: float, T: int, M: int, N: int, method: str, seed: int
+        self, r_0: float, T: int, M: int, N: int, method: str, seed: int = None
     ) -> pd.DataFrame:
         """
         r_0: Initial short rate.
@@ -39,19 +39,22 @@ class VasicekModel(StochasticProcess):
 
         delta = T / M
 
-        r = np.zeros((N, M + 1))
+        r = np.zeros([N, M+1])
         r[:, 0] = r_0
 
-        z = np.random.randn(N, M)
+        z = np.random.standard_normal((N, M))
 
         if method == "exact":
-            for m in range(M):
-                r[:, m + 1] = (
-                    r[:, m] * np.exp(-self.a * delta)
-                    + (self.b / self.a) * (1 - np.exp(-self.a * delta))
-                    + self.sigma
-                    * np.sqrt((1 - np.exp(-2 * self.a * delta)) / (2 * self.a))
-                ) * z[:, m]
+            for m in range(1,M+1):
+                r[:, m] = (
+                        r[:, m-1] * np.exp(-self.a * delta)
+                        + (self.b / self.a) * (1 - np.exp(-self.a * delta))
+                        + self.sigma * np.sqrt((1 - np.exp(-2 * self.a * delta)) / (2 * self.a)) * z[:, m-1]
+                )
+        if method == "euler":
+            for m in range(1,M+1):
+                r[:,m] = (
+                    r[:,m-1]) + (self.b - self.a * r[:,m-1]) + self.sigma * np.sqrt(delta) * z[:,m-1]
 
         short_rates = pd.DataFrame(
             r, index=[i for i in range(1, N + 1)], columns=np.linspace(0, T, M + 1)
@@ -97,34 +100,34 @@ class VasicekModel(StochasticProcess):
     def swap_rate(
         self,
         short_rate: pd.DataFrame,
+        entry_dates: float,
         expiry: float,
-        exercise_dates: list,
+        alpha: float
     ) -> pd.DataFrame:
         """
         Convert short rates in a Vasicek model to swap rates.
 
         short_rates: Simulated short rates.
-        expiry: Years until expiry. Equivalent to T_N.
-        exercise_dates: List of dates for which swap rates should be calculated. Each date is Equivalent to T_n.
+        entry_dates: List of dates for which swap rates is entered. Each date is equivalent to T_{n-1}.
+        expiry: Years until swap expiry. Equivalent to T_N.
         """
         swap_rates = {}
         accrual_factors = {}
 
-        for exercise_date in exercise_dates[:-1]:
-            start_date = exercise_date + 1
-
-            swap_maturities = [i for i in range(start_date, expiry + 1)]
+        for date in entry_dates:
+            start_date = min(i for i in np.arange(0, expiry, alpha) if i > date + 1e-5)
+            swap_annuities = np.arange(start_date, expiry + alpha, alpha)
 
             zcb_prices = self.price_zcb(
-                short_rates=short_rate, t=exercise_date, maturities=swap_maturities
+                short_rates=short_rate, t=date, maturities=swap_annuities
             )
 
             R, S = _compute_swap_rate_and_accrual_factor(
-                zcb_prices=zcb_prices, start=start_date, maturity=expiry
+                zcb_prices=zcb_prices, start=start_date, maturity=expiry, alpha=alpha
             )
 
-            swap_rates[exercise_date] = R
-            accrual_factors[exercise_date] = S
+            swap_rates[date] = R
+            accrual_factors[date] = S
 
         swap_rates = pd.DataFrame(swap_rates)
         accrual_factors = pd.DataFrame(accrual_factors)
