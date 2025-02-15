@@ -39,22 +39,27 @@ class VasicekModel(StochasticProcess):
 
         delta = T / M
 
-        r = np.zeros([N, M+1])
+        r = np.zeros([N, M + 1])
         r[:, 0] = r_0
 
         z = np.random.standard_normal((N, M))
 
         if method == "exact":
-            for m in range(1,M+1):
+            for m in range(1, M + 1):
                 r[:, m] = (
-                        r[:, m-1] * np.exp(-self.a * delta)
-                        + (self.b / self.a) * (1 - np.exp(-self.a * delta))
-                        + self.sigma * np.sqrt((1 - np.exp(-2 * self.a * delta)) / (2 * self.a)) * z[:, m-1]
+                    r[:, m - 1] * np.exp(-self.a * delta)
+                    + (self.b / self.a) * (1 - np.exp(-self.a * delta))
+                    + self.sigma
+                    * np.sqrt((1 - np.exp(-2 * self.a * delta)) / (2 * self.a))
+                    * z[:, m - 1]
                 )
         if method == "euler":
-            for m in range(1,M+1):
-                r[:,m] = (
-                    r[:,m-1]) + (self.b - self.a * r[:,m-1]) + self.sigma * np.sqrt(delta) * z[:,m-1]
+            for m in range(1, M + 1):
+                r[:, m] = (
+                    (r[:, m - 1])
+                    + (self.b - self.a * r[:, m - 1])
+                    + self.sigma * np.sqrt(delta) * z[:, m - 1]
+                )
 
         short_rates = pd.DataFrame(
             r, index=[i for i in range(1, N + 1)], columns=np.linspace(0, T, M + 1)
@@ -98,11 +103,7 @@ class VasicekModel(StochasticProcess):
         return zcb_prices
 
     def swap_rate(
-        self,
-        short_rate: pd.DataFrame,
-        entry_dates: float,
-        expiry: float,
-        alpha: float
+        self, short_rate: pd.DataFrame, entry_dates: float, expiry: float, alpha: float
     ) -> pd.DataFrame:
         """
         Convert short rates in a Vasicek model to swap rates.

@@ -3,7 +3,10 @@ import numpy as np
 
 
 def _compute_swap_rate_and_accrual_factor(
-    zcb_prices: pd.DataFrame, start: float, maturity: float, alpha: float,
+    zcb_prices: pd.DataFrame,
+    start: float,
+    maturity: float,
+    alpha: float,
 ) -> pd.DataFrame:
     """
     Computes the par swap rate and accrual factor.
@@ -14,17 +17,13 @@ def _compute_swap_rate_and_accrual_factor(
     alpha: Time interval between swap fixings in years.
     """
 
-    accrual_factors = alpha*zcb_prices.loc[:, start:maturity].sum(axis=1)
+    accrual_factors = alpha * zcb_prices.loc[:, start:maturity].sum(axis=1)
     swap_rates = (1 - zcb_prices[maturity]) / accrual_factors
 
     return swap_rates, accrual_factors
 
     def _swap_rates_from_zcb_pr(
-        self,
-        short_rate: pd.DataFrame,
-        entry_dates: float,
-        expiry: float,
-        alpha: float
+        self, short_rate: pd.DataFrame, entry_dates: float, expiry: float, alpha: float
     ) -> pd.DataFrame:
         """
         Convert short rates in a Vasicek model to swap rates.
@@ -57,7 +56,6 @@ def _compute_swap_rate_and_accrual_factor(
         return swap_rates, accrual_factors
 
 
-
 def _calculate_swaption_payoffs(
     swap_rates: pd.DataFrame, accrual_factors: pd.DataFrame, strike, payer: bool = True
 ) -> pd.DataFrame:
@@ -75,4 +73,3 @@ def _calculate_swaption_payoffs(
         return accrual_factors * np.maximum(swap_rates - strike, 0)
     else:
         return accrual_factors * np.minimum(strike - swap_rates, 0)
-

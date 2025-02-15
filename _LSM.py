@@ -1,6 +1,5 @@
 import pandas as pd
 import numpy as np
-from fontTools.merge.util import current_time
 
 from _calculate_swap_and_swaption_details import _calculate_swaption_payoffs
 
@@ -26,7 +25,10 @@ def _LSM_method(
     payoffs = _calculate_swaption_payoffs(
         swap_rates=swap_rates, accrual_factors=accrual_factors, strike=strike
     )
-    discounts = np.exp(-short_rates.loc[:, exercise_dates[:-1]].iloc[0].values * np.diff(exercise_dates))
+    discounts = np.exp(
+        -short_rates.loc[:, exercise_dates[:-1]].iloc[0].values
+        * np.diff(exercise_dates)
+    )
 
     cashflows = payoffs[exercise_dates[-1]] * discounts[-1]
     for i in range(len(exercise_dates) - 2, -1, -1):
@@ -34,7 +36,7 @@ def _LSM_method(
 
         itm_paths = payoffs.index[payoffs[t] > 0].tolist()
         if itm_paths == []:
-            cashflows = cashflows * discounts[i-1]
+            cashflows = cashflows * discounts[i - 1]
             continue
 
         itm_swap_rates = swap_rates.loc[itm_paths, t]
@@ -48,13 +50,11 @@ def _LSM_method(
         continuation_values = (
             beta[0] + beta[1] * itm_swap_rates + beta[2] * itm_swap_rates**2
         )
-        exercised_paths = (
-            payoffs[t] > continuation_values.reindex(payoffs[t].index)
-        )
+        exercised_paths = payoffs[t] > continuation_values.reindex(payoffs[t].index)
 
         cashflows.loc[exercised_paths] = payoffs[t].loc[exercised_paths]
 
         if t != 0:
-            cashflows = cashflows * discounts[i-1]
+            cashflows = cashflows * discounts[i - 1]
 
     return sum(cashflows) / len(cashflows)
