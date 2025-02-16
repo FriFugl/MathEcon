@@ -46,19 +46,21 @@ class VasicekModel(StochasticProcess):
 
         if method == "exact":
             for m in range(1, M + 1):
+
                 r[:, m] = (
                     r[:, m - 1] * np.exp(-self.a * delta)
                     + (self.b / self.a) * (1 - np.exp(-self.a * delta))
-                    + self.sigma
-                    * np.sqrt((1 - np.exp(-2 * self.a * delta)) / (2 * self.a))
+                    + self.sigma * np.sqrt((1 - np.exp(-2 * self.a * delta)) / (2 * self.a))
                     * z[:, m - 1]
                 )
+
         if method == "euler":
+            delta_sqrt = np.sqrt(delta)
             for m in range(1, M + 1):
                 r[:, m] = (
                     (r[:, m - 1])
-                    + (self.b - self.a * r[:, m - 1])
-                    + self.sigma * np.sqrt(delta) * z[:, m - 1]
+                    + (self.b - self.a * r[:, m - 1]) * delta
+                    + self.sigma * delta_sqrt * z[:, m - 1]
                 )
 
         short_rates = pd.DataFrame(
