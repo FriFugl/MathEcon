@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 
-from _calculate_swap_and_swaption_details import _compute_swap_rate_and_accrual_factor
+from _helpers import _compute_swap_rate_and_accrual_factor
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -50,7 +50,8 @@ class VasicekModel(StochasticProcess):
                 r[:, m] = (
                     r[:, m - 1] * np.exp(-self.a * delta)
                     + (self.b / self.a) * (1 - np.exp(-self.a * delta))
-                    + self.sigma * np.sqrt((1 - np.exp(-2 * self.a * delta)) / (2 * self.a))
+                    + self.sigma
+                    * np.sqrt((1 - np.exp(-2 * self.a * delta)) / (2 * self.a))
                     * z[:, m - 1]
                 )
 

@@ -2,6 +2,20 @@ import pandas as pd
 import numpy as np
 
 
+def _short_rate_to_discount_factors(short_rates: pd.DataFrame) -> pd.DataFrame:
+    """
+    Computes discount factors from dataframe of short_rates.
+
+    short_rates: pandas dataframe of short_rates in which the column names are time points.
+    """
+
+    return pd.DataFrame(
+        np.exp(-short_rates.iloc[:, :-1] * np.diff(short_rates.columns.to_numpy())),
+        index=short_rates.index,
+        columns=short_rates.columns[:-1],
+    )
+
+
 def _compute_swap_rate_and_accrual_factor(
     zcb_prices: pd.DataFrame,
     start: float,
