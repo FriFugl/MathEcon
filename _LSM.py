@@ -5,6 +5,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Union
 
+from scipy.odr import polynomial
+
 from _helpers import _short_rate_to_discount_factors
 
 
@@ -23,54 +25,62 @@ class LSM_method(algorithm):
     """
 
     strike: float
-    exercise_dates: float
-    basis_function: tuple
+    exercise_dates: list[float, ...]
+    basis_function: tuple[str, int]
 
     def _regression(
-        self, underlying_asset: pd.DataFrame, cashflows: pd.DataFrame
+        self, underlying_asset_values: pd.DataFrame, cashflows: pd.DataFrame
     ) -> np.ndarray:
         """
         Regression calculation performed when calibrating the LSM algorithm
 
-        swap_rates: In-the-money swap rates used as regressor.
+        underlying_asset_values: In-the-money assets.
         cashflows: In-the-money cashflows used as response variable.
         """
 
-        method = self.basis_function[0]
+        polynomial_type = self.basis_function[0]
         degree = self.basis_function[1]
 
-        if method == "polynomial":
-            X = np.column_stack([underlying_asset**i for i in range(degree + 1)])
+        if polynomial_type == "power":
+            polynomial = np.polynomial.polynomial.Polynomial((i for i in range(1, degree+1)))
 
-        beta, residuals, rank, s = np.linalg.lstsq(X, cashflows, rcond=None)
+        elif polynomial_type == "chebyshev":
+            polynomial = np.polynomial.chebyshev.Chebyshev((i for i in range(1, degree+1)))
 
-        return beta
+        elif polynomial_type == "legendre":
+            polynomial = np.polynomial.legendre.Legendre((i for i in range(1, degree+1)))
+
+        elif polynomial_type == "laguerre":
+            polynomial = np.polynomial.laguerre.Laguerre((i for i in range(1, degree+1)))
+
+        elif polynomial_type == "hermite":
+            polynomial = np.polynomial.hermite.Hermite((i for i in range(1, degree+1)))
+
+        else:
+            raise Exception(f"{polynomial_type} is an invalid polynomial type."
+                            f" It must be either 'power', 'chebyshev', 'laguerre', 'legendre' or 'hermite'.")
+
+        return polynomial.fit(x=underlying_asset_values, y=cashflows, deg=degree)
 
     def _exercise_evluation(
         self,
         t: float,
-        coefficients: dict,
-        swap_rates: pd.DataFrame,
+        fitted_basis_function: np.polynomial.polynomial,
+        underlying_asset_values: pd.DataFrame,
         payoffs: pd.DataFrame,
     ):
         """
         Calculates which paths to exercise.
 
         t: Time of decision.
-        coefficients: Dictionary of prediction coefficients.
-        swap_rates: In-the-money swap rates used to estimate continuation value.
+        fitted_basis_function: Fitted np.polynomial.polynomial to predict continuation values.
+        underlying_asset_values: In-the-money assets used to estimate continuation value.
         payoffs: Time t payoffs used to compare with continuation values.
         """
+        continuation_values = fitted_basis_function(underlying_asset_values)
 
-        method = self.basis_function[0]
-        degree = self.basis_function[1]
-
-        if method == "polynomial":
-            continuation_values = sum(
-                [coefficients[t][i] * swap_rates**i for i in range(degree + 1)]
-            )
-
-        return payoffs[t] > continuation_values.reindex(payoffs[t].index)
+        return payoffs[t] >  pd.Series(continuation_values,
+                                       index=underlying_asset_values.index).reindex(payoffs[t].index)
 
     def calibration(
         self,
@@ -83,11 +93,8 @@ class LSM_method(algorithm):
         Returns in-sample price estimate and coefficients.
 
         short_rates: Simulated short rates.
-        swap_rates: Simulated swap rates corresponding to the short_rates.
-        accrual_factors: Simulated swap rates corresponding to the short_rates.
-        strike: Strike of Swaption.
-        exercise_dates: Swaption exercise dates.
-        N: Number of simulated tracjetories.
+        underlying_asset_paths: Simulated paths of underlying asset.
+        payoffs: Time t payoffs of the option given the underlying asset paths.
         """
 
         if isinstance(short_rate, (float, int)):
@@ -98,7 +105,7 @@ class LSM_method(algorithm):
 
         discount_factors = _short_rate_to_discount_factors(short_rates=short_rate)
 
-        coefficients = {}
+        fitted_basis_functions = {}
         cashflows = (
             payoffs[self.exercise_dates[-1]] * discount_factors[self.exercise_dates[-2]]
         )
@@ -111,7 +118,7 @@ class LSM_method(algorithm):
             if itm_paths == []:
                 t_plus_one = self.exercise_dates[i+1]
                 try:
-                    coefficients[t] = coefficients[t_plus_one]
+                    fitted_basis_functions[t] = fitted_basis_functions[t_plus_one]
                 except: #WE STILL HAVE A PROBLEM HERE
                     raise Exception(
                         f"Unable to calculate regression coefficients for t = {t}"
@@ -121,28 +128,28 @@ class LSM_method(algorithm):
             itm_asset_paths = underlying_asset_paths.loc[itm_paths, t]
             itm_cashflows = cashflows[itm_paths].to_numpy()
 
-            coefficients[t] = self._regression(
-                underlying_asset=itm_asset_paths, cashflows=itm_cashflows
+            fitted_basis_functions[t] = self._regression(
+                underlying_asset_values=itm_asset_paths, cashflows=itm_cashflows
             )
 
             exercised_paths = self._exercise_evluation(
                 t=t,
-                coefficients=coefficients,
-                swap_rates=itm_asset_paths,
-                payoffs=payoffs,
+                fitted_basis_function=fitted_basis_functions[t],
+                underlying_asset_values=itm_asset_paths,
+                payoffs=payoffs
             )
 
             cashflows.loc[exercised_paths] = payoffs[t].loc[exercised_paths]
             cashflows = cashflows * discount_factors[t_minus_one]
 
-        return sum(cashflows) / len(cashflows), coefficients
+        return sum(cashflows) / len(cashflows), fitted_basis_functions
 
     def estimation(
         self,
         short_rate: Union[pd.DataFrame, float, int],
         underlying_asset_paths: pd.DataFrame,
         payoffs: pd.DataFrame,
-        coefficients: dict,
+        fitted_basis_functions: dict,
     ):
         if isinstance(short_rate, (float, int)):
             short_rate = pd.DataFrame(short_rate,
@@ -166,8 +173,8 @@ class LSM_method(algorithm):
 
             exercised_paths = self._exercise_evluation(
                 t=t,
-                coefficients=coefficients,
-                swap_rates=itm_asset_paths,
+                fitted_basis_function=fitted_basis_functions[t],
+                underlying_asset_values=itm_asset_paths,
                 payoffs=payoffs,
             )
 
