@@ -16,7 +16,7 @@ def _short_rate_to_discount_factors(short_rates: pd.DataFrame) -> pd.DataFrame:
     )
 
 
-def _compute_swap_rate_and_accrual_factor(
+def _calculate_swap_rate_and_accrual_factor(
     zcb_prices: pd.DataFrame,
     start: float,
     maturity: float,
@@ -38,7 +38,7 @@ def _compute_swap_rate_and_accrual_factor(
 
 
 def _calculate_swaption_payoffs(
-    swap_rates: pd.DataFrame, accrual_factors: pd.DataFrame, strike, payer: bool = True
+    swap_rates: pd.DataFrame, accrual_factors: pd.DataFrame, strike: float, payer: bool = True
 ) -> pd.DataFrame:
     """
     Function to calculate swaption payoff.
@@ -54,3 +54,17 @@ def _calculate_swaption_payoffs(
         return accrual_factors * np.maximum(swap_rates - strike, 0)
     else:
         return accrual_factors * np.minimum(strike - swap_rates, 0)
+
+def _calculate_option_payoffs(stock_paths: pd.DataFrame, strike: float, call: bool = False) -> pd.DataFrame:
+    """
+    Function to calculate put option payoffs.
+
+
+    stock_paths: Dataframe with stock paths at time points.
+    strike: Strike rate of swaption.
+    call: True for call option. False for put option. Default is False.
+    """
+    if call:
+        return np.maximum(stock_paths - strike, 0)
+    else:
+        return np.maximum( strike - stock_paths, 0)

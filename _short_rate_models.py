@@ -1,17 +1,10 @@
 import pandas as pd
 import numpy as np
 
-from _helpers import _compute_swap_rate_and_accrual_factor
+from _helpers import _calculate_swap_rate_and_accrual_factor
+from _processes import StochasticProcess
 
-from abc import ABC, abstractmethod
 from dataclasses import dataclass
-
-
-class StochasticProcess(ABC):
-    """Represente a Stochastic process"""
-
-    @abstractmethod
-    def simulate(self): ...
 
 
 @dataclass
@@ -126,7 +119,7 @@ class VasicekModel(StochasticProcess):
                 short_rates=short_rate, t=date, maturities=swap_annuities
             )
 
-            R, S = _compute_swap_rate_and_accrual_factor(
+            R, S = _calculate_swap_rate_and_accrual_factor(
                 zcb_prices=zcb_prices, start=start_date, maturity=expiry, alpha=alpha
             )
 
