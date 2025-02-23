@@ -12,7 +12,7 @@ This model has been implemented with the following dynamics
 
 $$dr_{t} = (b - ar_{t})dt + \sigma dW_{t} \quad a>0.$$
 
-It has an affine term structure, so ZCB prices can be represented as
+It has an affine term structure, and ZCB prices can be represented as
 
 $$p(t,T)=e^{A(t,T)-B(t,T)r_{t}},$$
 where
