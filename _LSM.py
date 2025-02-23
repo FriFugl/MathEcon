@@ -3,12 +3,8 @@ import numpy as np
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Union
 
-from scipy.odr import polynomial
-
-from _helpers import _short_rate_to_discount_factors
-
+from _config import polynomial_classes
 
 
 class algorithm(ABC):
@@ -41,24 +37,15 @@ class LSM_method(algorithm):
         polynomial_type = self.basis_function[0]
         degree = self.basis_function[1]
 
-        if polynomial_type == "power":
-            polynomial = np.polynomial.polynomial.Polynomial((i for i in range(1, degree+1)))
+        if polynomial_type not in polynomial_classes:
+            raise ValueError(
+                f"{polynomial_type} is an invalid polynomial type. "
+                "Must be one of: " + ", ".join(polynomial_classes.keys())
+            )
 
-        elif polynomial_type == "chebyshev":
-            polynomial = np.polynomial.chebyshev.Chebyshev((i for i in range(1, degree+1)))
-
-        elif polynomial_type == "legendre":
-            polynomial = np.polynomial.legendre.Legendre((i for i in range(1, degree+1)))
-
-        elif polynomial_type == "laguerre":
-            polynomial = np.polynomial.laguerre.Laguerre((i for i in range(1, degree+1)))
-
-        elif polynomial_type == "hermite":
-            polynomial = np.polynomial.hermite.Hermite((i for i in range(1, degree+1)))
-
-        else:
-            raise Exception(f"{polynomial_type} is an invalid polynomial type."
-                            f" It must be either 'power', 'chebyshev', 'laguerre', 'legendre' or 'hermite'.")
+        polynomial = polynomial_classes[polynomial_type](
+            (i for i in range(1, degree + 1))
+        )
 
         return polynomial.fit(x=underlying_asset_values, y=cashflows, deg=degree)
 
@@ -79,31 +66,24 @@ class LSM_method(algorithm):
         """
         continuation_values = fitted_basis_function(underlying_asset_values)
 
-        return payoffs[t] >  pd.Series(continuation_values,
-                                       index=underlying_asset_values.index).reindex(payoffs[t].index)
+        return payoffs[t] > pd.Series(
+            continuation_values, index=underlying_asset_values.index
+        ).reindex(payoffs[t].index)
 
     def calibration(
         self,
-        short_rate: Union[pd.DataFrame, float, int],
         underlying_asset_paths: pd.DataFrame,
-        payoffs: pd.DataFrame
+        payoffs: pd.DataFrame,
+        discount_factors: pd.DataFrame,
     ) -> pd.DataFrame:
         """
         Calibrates the regression coefficients by backwards recursion.
         Returns in-sample price estimate and coefficients.
 
-        short_rates: Simulated short rates.
         underlying_asset_paths: Simulated paths of underlying asset.
         payoffs: Time t payoffs of the option given the underlying asset paths.
+        discount_factors: Discount factors for each t to discount from t+1 to t.
         """
-
-        if isinstance(short_rate, (float, int)):
-            short_rate = pd.DataFrame(short_rate,
-                                      index=payoffs.index,
-                                      columns=payoffs.columns
-                                      )
-
-        discount_factors = _short_rate_to_discount_factors(short_rates=short_rate)
 
         fitted_basis_functions = {}
         cashflows = (
@@ -112,21 +92,20 @@ class LSM_method(algorithm):
 
         for i in range(len(self.exercise_dates) - 2, 0, -1):
             t = self.exercise_dates[i]
-            t_minus_one =  self.exercise_dates[i-1]
+            t_minus_one = self.exercise_dates[i - 1]
 
             itm_paths = payoffs.index[payoffs[t] > 0].tolist()
             if itm_paths == []:
-                t_plus_one = self.exercise_dates[i+1]
+                t_plus_one = self.exercise_dates[i + 1]
                 try:
                     fitted_basis_functions[t] = fitted_basis_functions[t_plus_one]
-                except: #WE STILL HAVE A PROBLEM HERE
+                except:  # WE STILL HAVE A PROBLEM HERE
                     raise Exception(
                         f"Unable to calculate regression coefficients for t = {t}"
                         f" due to to no ITM paths."
                     )
-
-            itm_asset_paths = underlying_asset_paths.loc[itm_paths, t]
             itm_cashflows = cashflows[itm_paths].to_numpy()
+            itm_asset_paths = underlying_asset_paths.loc[itm_paths, t]
 
             fitted_basis_functions[t] = self._regression(
                 underlying_asset_values=itm_asset_paths, cashflows=itm_cashflows
@@ -136,7 +115,7 @@ class LSM_method(algorithm):
                 t=t,
                 fitted_basis_function=fitted_basis_functions[t],
                 underlying_asset_values=itm_asset_paths,
-                payoffs=payoffs
+                payoffs=payoffs,
             )
 
             cashflows.loc[exercised_paths] = payoffs[t].loc[exercised_paths]
@@ -146,18 +125,11 @@ class LSM_method(algorithm):
 
     def estimation(
         self,
-        short_rate: Union[pd.DataFrame, float, int],
         underlying_asset_paths: pd.DataFrame,
         payoffs: pd.DataFrame,
+        discount_factors: pd.DataFrame,
         fitted_basis_functions: dict,
     ):
-        if isinstance(short_rate, (float, int)):
-            short_rate = pd.DataFrame(short_rate,
-                                      index=payoffs.index,
-                                      columns=payoffs.columns
-                                      )
-
-        discount_factors = _short_rate_to_discount_factors(short_rates=short_rate)
 
         discount = discount_factors[0]
         cashflows = pd.Series(0, index=payoffs.index, name="cashflows", dtype=float)

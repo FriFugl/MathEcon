@@ -5,6 +5,7 @@ from _processes import StochasticProcess
 
 from dataclasses import dataclass
 
+
 @dataclass
 class GeometricBrownianMotion(StochasticProcess):
     """
@@ -35,8 +36,9 @@ class GeometricBrownianMotion(StochasticProcess):
         z = np.random.standard_normal((N, M))
 
         for m in range(1, M + 1):
-            s[:, m] = (
-                s[:, m - 1] * np.exp((self.r - 0.5 * self.sigma**2) * delta + self.sigma * np.sqrt(delta) * z[:, m - 1])
+            s[:, m] = s[:, m - 1] * np.exp(
+                (self.r - 0.5 * self.sigma**2) * delta
+                + self.sigma * np.sqrt(delta) * z[:, m - 1]
             )
 
         stock_paths = pd.DataFrame(
