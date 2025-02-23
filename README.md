@@ -1,0 +1,1 @@
+This is an implementation of the least-squares monte carlo method developed by Longstaff & Schwartz to price american style options. It has been implemented to be capable of pricing Bermudan swaptions and American (or Bermudan) stock options.
