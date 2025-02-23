@@ -1,5 +1,5 @@
 # Least Squares Monte Carlo methods for American option pricing
-This is an implementation of the least-squares monte carlo method developed by Longstaff & Schwartz to price american style options. It has been implemented to be capable of pricing Bermudan swaptions and American (or Bermudan) stock options.
+This is an implementation of the least-squares monte carlo method developed by Longstaff & Schwartz to price american style options. It has been implemented to be capable of pricing American style options.
 
 * `_processes` contains a class representing a stochastic process.
 * `_short_rate_models` contains classes of short rate models to simulate short rate trajectories, calculate zero coupon bond prices and swap rates.
