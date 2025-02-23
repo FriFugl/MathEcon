@@ -38,7 +38,10 @@ def _calculate_swap_rate_and_accrual_factor(
 
 
 def _calculate_swaption_payoffs(
-    swap_rates: pd.DataFrame, accrual_factors: pd.DataFrame, strike: float, payer: bool = True
+    swap_rates: pd.DataFrame,
+    accrual_factors: pd.DataFrame,
+    strike: float,
+    payer: bool = True,
 ) -> pd.DataFrame:
     """
     Function to calculate swaption payoff.
@@ -55,7 +58,10 @@ def _calculate_swaption_payoffs(
     else:
         return accrual_factors * np.minimum(strike - swap_rates, 0)
 
-def _calculate_option_payoffs(stock_paths: pd.DataFrame, strike: float, call: bool = False) -> pd.DataFrame:
+
+def _calculate_option_payoffs(
+    stock_paths: pd.DataFrame, strike: float, call: bool = False
+) -> pd.DataFrame:
     """
     Function to calculate put option payoffs.
 
@@ -67,4 +73,4 @@ def _calculate_option_payoffs(stock_paths: pd.DataFrame, strike: float, call: bo
     if call:
         return np.maximum(stock_paths - strike, 0)
     else:
-        return np.maximum( strike - stock_paths, 0)
+        return np.maximum(strike - stock_paths, 0)
