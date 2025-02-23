@@ -40,5 +40,13 @@ VasicekModel = VasicekModel(a=1, b=0.05, sigma=0.04) #Initiate model
 simulated_short_rates = VasicekModel.simulate(r_0=0.03, T=10, M=120, N=5, method='exact', seed=10)
 ```
 which will create a $N\times M$ pandas dataframe such that each row corresponds to the trajectories of the short rate. Example result is plotted below.
-
+```
+plt.figure(figsize=(6, 4))
+for i, row in simulated_short_rates.iterrows():
+    plt.plot(simulated_short_rates.columns, row, label=f'Trajectory {i+1}', alpha=0.7)
+plt.xlabel('$t$', fontsize=10)
+plt.ylabel('$r_{t}$', fontsize=10).set_rotation(0)
+plt.title('Simulation of 5 short rates in the Vasiček model, seed = 10', fontsize=10)
+plt.show()
+```
 ![alt text](https://github.com/FriFugl/MathEcon/blob/setup/demo_files/vasicek_example.png?raw=true)
