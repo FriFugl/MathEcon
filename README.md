@@ -39,6 +39,6 @@ VasicekModel = VasicekModel(a=1, b=0.05, sigma=0.04) #Initiate model
 # M = number of discretization points, N = number of paths, seed is a keyword argument
 simulated_short_rates = VasicekModel.simulate(r_0=0.03, T=10, M=120, N=5, method='exact', seed=10)
 ```
-which will create a $N\times M$ pandas dataframe such that each row corresponds to the trajectory of each short rate. Below is a plot of the result
+which will create a $N\times M$ pandas dataframe such that each row corresponds to the trajectory of each short rate with the plotted result below.
 
 ![alt text](https://github.com/FriFugl/MathEcon/blob/setup/demo_files/vasicek_example.png?raw=true)
