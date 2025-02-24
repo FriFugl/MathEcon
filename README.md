@@ -5,6 +5,7 @@ This is an implementation of the least-squares monte carlo method developed by L
 * `_short_rate_models` contains classes of short rate models to simulate short rate trajectories, calculate zero coupon bond prices and swap rates.
 * `_stock_path_models` contains a class for the Geometric Brownian Motion process.
 * `_LSM` contains classes for Least Squares Monte Carlo methods for option pricing.
+* `_helpers` contains miscellaneous functions used in the repository.
 
 ## Short rate models
 ### The Vasiček model
@@ -97,3 +98,56 @@ stock_paths = GBM.simulate(s_0=36, T=1, M=50, N=5, seed = 10)
 which will produce these paths
 
 ![alt text](https://github.com/FriFugl/MathEcon/blob/setup/demo_files/GBM_example.png?raw=true)
+
+## The Least Squares Monte Carlo method for pricing American options
+### Classic Least Squares Monte Carlo method
+In `_LSM` there is an implementation of the least squares monte carlo method as introduced in [Longstaff & Schwartz (2001)](https://people.math.ethz.ch/~hjfurrer/teaching/LongstaffSchwartzAmericanOptionsLeastSquareMonteCarlo.pdf). It is too long to describe here, so I will refer to the original paper for details.
+
+To demonstrate it, we can recreate a result from table 1 in the original paper, where they use the algorithm to price an american put option on a stock with a strike of 40.
+```
+import pandas as pd
+
+from _helpers import _calculate_option_payoffs
+from _helpers import _short_rate_to_discount_factors
+
+from _LSM import LSM_method
+
+from _stock_path_models import GeometricBrownianMotion
+
+r = 0.06                                            #Risk-free rate
+sigma = 0.2                                         #Volatility
+strike = 40                                         #Option strike
+s_0 = 36                                            #Initial stock value
+
+T = 1                                               #Timespan in years
+M = T*50                                            #Total number of exercise points (50 per year)
+N = 100000                                          #Number of simulated stock paths
+exercise_dates = [i*(T/M) for i in range(M+1)]      #Exercise dates
+
+GBM = GeometricBrownianMotion(r=r, sigma=sigma)
+stock_paths = GBM.simulate(s_0=s_0, T=T, M=M, N=N, seed=10)
+
+short_rate = pd.DataFrame(r, index=stock_paths.index, columns=stock_paths.columns)
+discount_factors = _short_rate_to_discount_factors(short_rates=short_rate)
+
+LSM_model = LSM_method(strike=strike, exercise_dates=exercise_dates, basis_function=('laguerre',3))    
+calibration_payoffs = _calculate_option_payoffs(stock_paths=stock_paths, strike=strike, call=False)
+option_price, fitted_basis_functions = LSM_model.calibration(underlying_asset_paths=stock_paths,
+                                                   payoffs=calibration_payoffs,
+                                                   discount_factors=discount_factors)
+
+print(f"Estimated option price: {option_price}")
+```
+giving an estimated option price of approximately 4.480 very much aligned with the original result. Note that in the above we use the calibration method, which returns an option price and fitted basis functions. To avoid in-sample bias, the method implemented can also run a forward path by using `LSM_method.estimation` which takes the same arguments as `LSM_method.calibration` and in addition the fitted basis functions.
+
+#### Usage details
+When initiating the LSM method it requres a fixed strike, a set of exercise dates and a tuple specifying the basis function to be used in the algorithm. The implementation allows for these types of polynomials as basis functions:
+* Power
+* Laguerre
+* Chebyshev
+* Legendre
+* Hermite
+
+To specify a polynomial of powers to the 2nd degree, you simple set `basis_function=('power',2)`.
+
+When using either  `LSM_method.estimation` or `LSM_method.calibration` it requires a set of simulated assets paths depending on the type of option, which can be created using the simulation methods above and from these the payoffs can be calculated. The method also requires a dataframe of discount factors to continously discount the cashflow in the pricing method. These discount factors can be calculated from a dataframe of simulated short rates or a constant short rate using `_short_rate_to_discount_factors`.
