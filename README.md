@@ -90,7 +90,7 @@ from _stock_path_models import GeometricBrownianMotion
 #r = risk-free rate, sigma = volatility
 GBM = GeometricBrownianMotion(r=0.06, sigma=0.4)
      
-#s_0 = starting value, T = length of time interval, M = discretization, number of discretization points
+#s_0 = starting value, T = length of time interval, M = number of discretization points
 #N = number of paths, seed is a keyword argument
 stock_paths = GBM.simulate(s_0=36, T=1, M=50, N=5, seed = 10)      
 ```
