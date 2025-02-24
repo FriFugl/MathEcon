@@ -130,6 +130,14 @@ class LSM_method(algorithm):
         discount_factors: pd.DataFrame,
         fitted_basis_functions: dict,
     ):
+        """
+        Estimates option price given the underlying asset paths, discount factors and calibrated basis functions.
+
+        underlying_asset_paths: Simulated paths of underlying asset.
+        payoffs: Time t payoffs of the option given the underlying asset paths.
+        discount_factors: Discount factors for each t to discount from t+1 to t.
+        fitted_basis_functions: Fitted basis functions as returned by calibration above.
+        """
 
         discount = discount_factors[0]
         cashflows = pd.Series(0, index=payoffs.index, name="cashflows", dtype=float)

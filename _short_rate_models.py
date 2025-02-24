@@ -24,8 +24,9 @@ class VasicekModel(StochasticProcess):
         r_0: Initial short rate.
         T: Length of time grid.
         M: Time discretization.
-        method: Method of simulation.
         N: Number of simulated paths.
+        method: Method of simulation.
+        seed: Keyword argument to set seed.
         """
         if seed is not None:
             np.random.seed(seed)
@@ -107,6 +108,7 @@ class VasicekModel(StochasticProcess):
         short_rates: Simulated short rates.
         entry_dates: List of dates for which swap rates is entered. Each date is equivalent to T_{n-1}.
         expiry: Years until swap expiry. Equivalent to T_N.
+        alpha: Time between fixed payments.
         """
         swap_rates = {}
         accrual_factors = {}

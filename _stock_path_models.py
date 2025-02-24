@@ -22,8 +22,8 @@ class GeometricBrownianMotion(StochasticProcess):
         r_0: Initial short rate.
         T: Length of time grid.
         M: Time discretization.
-        method: Method of simulation.
         N: Number of simulated paths.
+        seed: Keyword argument to set seed.
         """
         if seed is not None:
             np.random.seed(seed)

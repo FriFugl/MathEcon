@@ -46,7 +46,6 @@ def _calculate_swaption_payoffs(
     """
     Function to calculate swaption payoff.
 
-
     swap_rates: Dataframe with swap rates at time points.
     accrual_factors: Dataframe with accrual factors at time points.
     strike: Strike rate of swaption.
@@ -64,7 +63,6 @@ def _calculate_option_payoffs(
 ) -> pd.DataFrame:
     """
     Function to calculate put option payoffs.
-
 
     stock_paths: Dataframe with stock paths at time points.
     strike: Strike rate of swaption.
