@@ -95,4 +95,5 @@ GBM = GeometricBrownianMotion(r=0.06, sigma=0.4)
 stock_paths = GBM.simulate(s_0=36, T=1, M=50, N=5, seed = 10)      
 ```
 which will produce these paths
+
 ![alt text](https://github.com/FriFugl/MathEcon/blob/setup/demo_files/GBM_example.png?raw=true)
