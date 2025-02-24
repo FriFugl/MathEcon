@@ -5,6 +5,7 @@ This is an implementation of the least-squares monte carlo method developed by L
 * `_short_rate_models` contains classes of short rate models to simulate short rate trajectories, calculate zero coupon bond prices and swap rates.
 * `_stock_path_models` contains a class for the Geometric Brownian Motion process.
 * `_LSM` contains classes for Least Squares Monte Carlo methods for option pricing.
+* `_helpers` contains miscellaneous functions used in the repository.
 
 ## Short rate models
 ### The Vasiček model
