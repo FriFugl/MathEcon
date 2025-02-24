@@ -31,6 +31,7 @@ $$r_{t_{i+1}} = r_{t_{i}} + (b-ar_{t_{i}})(t_{i+1}-t_{i}) + \sigma \sqrt{t_{i+1}
 where $z_{i}$ is an i.i.d. sequence of standard normal random variables.
 
 ### Usage
+#### Simulating the short rate
 Here is an example of using the Vasiček model from `_short_rate_models`
 ```
 from _short_rate_models import VasicekModel
@@ -50,3 +51,48 @@ plt.title('Simulation of 5 short rates in the Vasiček model, seed = 10', fontsi
 plt.show()
 ```
 ![alt text](https://github.com/FriFugl/MathEcon/blob/setup/demo_files/vasicek_example.png?raw=true)
+#### Calculating ZCB prices, swap rates and accrual factors
+With the short rates from the Vasiček model we can calculate ZCB prices and swap details with
+```
+maturities = [i for i in range(11)]
+ZCB_prices = VasicekModel.price_zcb(short_rates: simulated_short_rates,
+                                    t=0,
+                                    maturities=maturities)
+
+T = 10 #Expiry of the swaps
+entry_dates = [i for i in range(9)] #Entry dates of the swap
+alpha = 1 #Time difference between payment of the fixed leg
+swap_rates, accrual_factors = VasicekModel.swap_rate(short_rate=simulated_short_rates,
+                                                         entry_dates=exercise_dates,
+                                                         expiry=T,
+                                                         alpha=alpha)
+```
+## Stock path models
+### Geometric Brownian motion
+The Geometric Bronian motion has the risk-neutral dynamics 
+
+$$dS_{t}=rS_{t}dt+\sigma S_{t}dW_{t}$$
+
+which has the following solution
+
+$$S(t) = S(0)\exp\left(\left(r-\frac{\sigma^{2}}{2}\right)t+\sigma W_{t}\right).$$
+
+On a discretized time grid $0=t_{0}<t_{1}<\cdots<t_{n-1}<t_{n}=T$ it can be simulated using
+
+$$S(t_{i+1}) = S(t_{i})\exp\left(\left(r-\frac{\sigma^{2}}{2}\right)(t_{i+1}-t_{i})+\sigma\sqrt{t_{i+1}-t_{i}}z_{t_{i+1}}\right).$$
+
+### Usage
+
+From `_stock_path_models` we can simulate a Geometric Brownian Motion by
+```
+from _stock_path_models import GeometricBrownianMotion
+
+#r = risk-free rate, sigma = volatility
+GBM = GeometricBrownianMotion(r=0.06, sigma=0.4)
+     
+#s_0 = starting value, T = length of time interval, M = discretization, number of discretization points
+#N = number of paths, seed is a keyword argument
+stock_paths = GBM.simulate(s_0=36, T=1, M=50, N=5, seed = 10)      
+```
+which will produce these paths
+![alt text](https://github.com/FriFugl/MathEcon/blob/setup/demo_files/GBM_example.png?raw=true)
