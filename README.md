@@ -101,16 +101,20 @@ which will produce these paths
 
 ## The Least Squares Monte Carlo method for pricing American options
 ### Classic Least Squares Monte Carlo method
-In `_LSM` there is an implementation of the least squares monte carlo method as introduced in [Longstaff & Schwartz (2001)](https://people.math.ethz.ch/~hjfurrer/teaching/LongstaffSchwartzAmericanOptionsLeastSquareMonteCarlo.pdf). It is too long to describe here, so I will refer to the original paper for details.
+In `_LSM` there are two implementations of the least squares monte carlo method as introduced in [Longstaff & Schwartz (2001)](https://people.math.ethz.ch/~hjfurrer/teaching/LongstaffSchwartzAmericanOptionsLeastSquareMonteCarlo.pdf) called `LSM_method_v1` and `LSM_method_v2`. The algorithm is too long to describe here, so I will refer to the original paper for details.
 
-To demonstrate it, we can recreate a result from table 1 in the original paper, where they use the algorithm to price an american put option on a stock with a strike of 40.
+The two implentations differ in a few ways.
+* They estimate the beta coefficients using different methods, providing slightly different results.
+* The `LSM_method_v1` is capable of using different types of basis functions while `LSM_method_v2` only uses power polynomials, but it is setup to be able to also run a Delta regularized estimation, which decreases variance.
+
+To demonstrate `LSM_method_v1`, we can recreate a result from table 1 in the original paper, where they use the algorithm to price an american put option on a stock with a strike of 40.
 ```
 import pandas as pd
 
 from _helpers import _calculate_option_payoffs
 from _helpers import _short_rate_to_discount_factors
 
-from _LSM import LSM_method
+from _LSM import LSM_method_v1
 
 from _stock_path_models import GeometricBrownianMotion
 
@@ -130,7 +134,7 @@ stock_paths = GBM.simulate(s_0=s_0, T=T, M=M, N=N, seed=10)
 short_rate = pd.DataFrame(r, index=stock_paths.index, columns=stock_paths.columns)
 discount_factors = _short_rate_to_discount_factors(short_rates=short_rate)
 
-LSM_model = LSM_method(strike=strike, exercise_dates=exercise_dates, basis_function=('laguerre',3))    
+LSM_model = LSM_method_v1(strike=strike, exercise_dates=exercise_dates, basis_function=('laguerre',3))    
 calibration_payoffs = _calculate_option_payoffs(stock_paths=stock_paths, strike=strike, call=False)
 option_price, fitted_basis_functions = LSM_model.calibration(underlying_asset_paths=stock_paths,
                                                    payoffs=calibration_payoffs,
@@ -138,7 +142,7 @@ option_price, fitted_basis_functions = LSM_model.calibration(underlying_asset_pa
 
 print(f"Estimated option price: {option_price}")
 ```
-giving an estimated option price of approximately 4.480 very much aligned with the original result. Note that in the above we use the calibration method, which returns an option price and fitted basis functions. To avoid in-sample bias, the method implemented can also run a forward path by using `LSM_method.estimation` which takes the same arguments as `LSM_method.calibration` and in addition the fitted basis functions.
+giving an estimated option price of approximately 4.480 very much aligned with the original result. Note that in the above we use the calibration method, which returns an option price and fitted basis functions. To avoid in-sample bias, the method implemented can also run a forward path by using `LSM_method_v1.estimation` which takes the same arguments as `LSM_method_v1.calibration` and in addition the fitted basis functions.
 
 #### Usage details
 When initiating the LSM method it requres a fixed strike, a set of exercise dates and a tuple specifying the basis function to be used in the algorithm. The implementation allows for these types of polynomials as basis functions:
