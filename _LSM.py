@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+from scipy.optimize import minimize
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -87,12 +88,13 @@ class LSM_method(algorithm):
 
         fitted_basis_functions = {}
         cashflows = (
-            payoffs[self.exercise_dates[-1]] * discount_factors[self.exercise_dates[-2]]
+            payoffs[self.exercise_dates[-1]]
         )
 
-        for i in range(len(self.exercise_dates) - 2, 0, -1):
+        for i in range(len(self.exercise_dates) - 2, -1, -1):
             t = self.exercise_dates[i]
-            t_minus_one = self.exercise_dates[i - 1]
+
+            cashflows = cashflows * discount_factors[t]
 
             itm_paths = payoffs.index[payoffs[t] > 0].tolist()
             if itm_paths == []:
@@ -104,6 +106,7 @@ class LSM_method(algorithm):
                         f"Unable to calculate regression coefficients for t = {t}"
                         f" due to to no ITM paths."
                     )
+
             itm_cashflows = cashflows[itm_paths].to_numpy()
             itm_asset_paths = underlying_asset_paths.loc[itm_paths, t]
 
@@ -119,7 +122,6 @@ class LSM_method(algorithm):
             )
 
             cashflows.loc[exercised_paths] = payoffs[t].loc[exercised_paths]
-            cashflows = cashflows * discount_factors[t_minus_one]
 
         return sum(cashflows) / len(cashflows), fitted_basis_functions
 
@@ -138,17 +140,15 @@ class LSM_method(algorithm):
         discount_factors: Discount factors for each t to discount from t+1 to t.
         fitted_basis_functions: Fitted basis functions as returned by calibration above.
         """
-
-        discount = discount_factors[0]
         cashflows = pd.Series(0, index=payoffs.index, name="cashflows", dtype=float)
-        for i in range(1, len(self.exercise_dates)):
+        for i in range(len(self.exercise_dates)):
             t = self.exercise_dates[i]
 
             itm_paths = payoffs.index[payoffs[t] > 0].tolist()
             itm_asset_paths = underlying_asset_paths.loc[itm_paths, t]
 
             if t == self.exercise_dates[-1]:
-                cashflows.loc[itm_paths] = payoffs[t].loc[itm_paths] * discount
+                cashflows.loc[itm_paths] = payoffs[t].loc[itm_paths] * discount.loc[itm_paths]
                 continue
 
             exercised_paths = self._exercise_evluation(
@@ -158,9 +158,725 @@ class LSM_method(algorithm):
                 payoffs=payoffs,
             )
 
-            cashflows.loc[exercised_paths] = payoffs[t].loc[exercised_paths] * discount
+            if i > 0:
+                cashflows.loc[exercised_paths] = payoffs[t].loc[exercised_paths] * discount.loc[exercised_paths]
+                discount = discount * discount_factors[t]
+            else:
+                cashflows.loc[exercised_paths] = payoffs[t].loc[exercised_paths]
+                discount = discount_factors[self.exercise_dates[0]]
+
             payoffs.loc[exercised_paths, t:] = 0
 
-            discount = discount * discount_factors[t]
+        return sum(cashflows) / len(cashflows)
+
+@dataclass
+class classic_LSM(algorithm):
+    """
+    The classic Longstaff Schwarz Monte-Carlo method.
+    """
+
+    strike: float
+    exercise_dates: list[float, ...]
+    basis_function: tuple[str, int]
+
+    def _loss(self,
+              beta: list[float],
+              Y: pd.DataFrame,
+              phi: pd.DataFrame) -> float:
+
+        pred = phi @ beta
+        return np.sum((Y - pred) ** 2)
+
+    def _regression(
+        self, cashflows: pd.DataFrame, phi: np.array
+    ) -> np.ndarray:
+        """
+        Regression calculation performed when calibrating the LSM algorithm
+
+        underlying_asset_values: In-the-money assets.
+        cashflows: In-the-money cashflows used as response variable.
+        """
+
+        beta0 = np.zeros(phi.shape[1])
+        result = minimize(self._loss, beta0,
+                          args=(cashflows, phi))
+
+        return result.x
+
+    def _exercise_evluation(
+        self,
+        t: float,
+        beta: np.array,
+        payoffs: pd.DataFrame,
+        phi: np.array,
+        underlying_asset_paths: pd.DataFrame,
+    ):
+        """
+        Calculates which paths to exercise.
+
+        t: Time of decision.
+        fitted_basis_function: Fitted np.polynomial.polynomial to predict continuation values.
+        underlying_asset_values: In-the-money assets used to estimate continuation value.
+        payoffs: Time t payoffs used to compare with continuation values.
+        """
+        continuation_values = phi @ beta
+
+        return payoffs[t] > pd.Series(continuation_values, index=underlying_asset_paths.index
+                            ).reindex(payoffs[t].index)
+
+    def calibration(
+            self,
+            underlying_asset_paths: pd.DataFrame,
+            payoffs: pd.DataFrame,
+            discount_factors: pd.DataFrame,
+    ) -> pd.DataFrame:
+        """
+        Calibrates the regression coefficients by backwards recursion.
+        Returns in-sample price estimate and coefficients.
+
+        underlying_asset_paths: Simulated paths of underlying asset.
+        payoffs: Time t payoffs of the option given the underlying asset paths.
+        discount_factors: Discount factors for each t to discount from t+1 to t.
+        """
+        degree = self.basis_function[1]
+        betas = {}
+        cashflows = (
+            payoffs[self.exercise_dates[-1]]
+        )
+
+        for i in range(len(self.exercise_dates) - 2, -1, -1):
+            t = self.exercise_dates[i]
+
+            cashflows = cashflows * discount_factors[t]
+
+            itm_paths = payoffs.index[payoffs[t] > 0].tolist()
+            if itm_paths == []:
+                t_plus_one = self.exercise_dates[i + 1]
+                try:
+                    fitted_basis_functions[t] = fitted_basis_functions[t_plus_one]
+                except:  # WE STILL HAVE A PROBLEM HERE
+                    raise Exception(
+                        f"Unable to calculate regression coefficients for t = {t}"
+                        f" due to to no ITM paths."
+                    )
+
+            itm_cashflows = cashflows[itm_paths].to_numpy()
+            itm_asset_paths = underlying_asset_paths.loc[itm_paths, t]
+
+            phi = np.vstack([itm_asset_paths ** i for i in range(0, degree + 1)]).T
+
+            betas[t] = self._regression(
+                cashflows=itm_cashflows, phi=phi
+            )
+
+            exercised_paths = self._exercise_evluation(
+                t=t,
+                beta=betas[t],
+                payoffs=payoffs,
+                phi=phi,
+                underlying_asset_paths=itm_asset_paths
+            )
+
+            cashflows.loc[exercised_paths] = payoffs[t].loc[exercised_paths]
+
+        return sum(cashflows) / len(cashflows), betas
+
+    def estimation(
+        self,
+        underlying_asset_paths: pd.DataFrame,
+        payoffs: pd.DataFrame,
+        discount_factors: pd.DataFrame,
+        betas: dict,
+    ):
+        """
+        Estimates option price given the underlying asset paths, discount factors and calibrated basis functions.
+
+        underlying_asset_paths: Simulated paths of underlying asset.
+        payoffs: Time t payoffs of the option given the underlying asset paths.
+        discount_factors: Discount factors for each t to discount from t+1 to t.
+        fitted_basis_functions: Fitted basis functions as returned by calibration above.
+        """
+        degree = self.basis_function[1]
+        cashflows = pd.Series(0, index=payoffs.index, name="cashflows", dtype=float)
+        for i in range(len(self.exercise_dates)):
+            t = self.exercise_dates[i]
+
+            itm_paths = payoffs.index[payoffs[t] > 0].tolist()
+            itm_asset_paths = underlying_asset_paths.loc[itm_paths, t]
+
+            if t == self.exercise_dates[-1]:
+                cashflows.loc[itm_paths] = payoffs[t].loc[itm_paths] * discount
+                continue
+
+            phi = np.vstack([itm_asset_paths ** i for i in range(0, degree + 1)]).T
+
+            exercised_paths = self._exercise_evluation(
+                    t=t,
+                    beta=betas[t],
+                    payoffs=payoffs,
+                    phi=phi,
+                    underlying_asset_paths=itm_asset_paths,
+                )
+
+            if i > 0:
+                cashflows.loc[exercised_paths] = payoffs[t].loc[exercised_paths] * discount.loc[exercised_paths]
+                discount = discount * discount_factors[t]
+            else:
+                cashflows.loc[exercised_paths] = payoffs[t].loc[exercised_paths]
+                discount = discount_factors[self.exercise_dates[0]]
+
+            payoffs.loc[exercised_paths, t:] = 0
+
+        return sum(cashflows) / len(cashflows)
+
+@dataclass
+class delta_LSM_stock_option(algorithm):
+    """
+    The classic Longstaff Schwarz Monte-Carlo method.
+    """
+
+    strike: float
+    exercise_dates: list[float, ...]
+    basis_function: tuple[str, int]
+
+    def _loss(self,
+              beta: list[float],
+              Y: pd.DataFrame,
+              Z: pd.DataFrame,
+              phi: pd.DataFrame,
+              phi_prime,
+              _lambda: float) -> float:
+
+        pred = phi @ beta
+        reg = phi_prime @ beta[1:]
+        return np.sum((Y - pred) ** 2) + _lambda * np.sum((Z - reg) ** 2)
+
+    def _regression(
+        self, cashflows: pd.DataFrame, phi: np.array, phi_prime: np.array, Z: pd.DataFrame,
+    ) -> np.ndarray:
+        """
+        Regression calculation performed when calibrating the LSM algorithm
+
+        underlying_asset_values: In-the-money assets.
+        cashflows: In-the-money cashflows used as response variable.
+        """
+        _lambda = (cashflows @ cashflows) / (Z @ Z)
+
+        beta0 = np.zeros(phi.shape[1])
+        result = minimize(self._loss, beta0,
+                          args=(cashflows, Z, phi, phi_prime, _lambda))
+
+        beta = result.x
+        return beta
+
+    def _exercise_evluation(
+        self,
+        t: float,
+        beta: np.array,
+        payoffs: pd.DataFrame,
+        phi: np.array,
+        underlying_asset_paths: pd.DataFrame,
+    ):
+        """
+        Calculates which paths to exercise.
+
+        t: Time of decision.
+        fitted_basis_function: Fitted np.polynomial.polynomial to predict continuation values.
+        underlying_asset_values: In-the-money assets used to estimate continuation value.
+        payoffs: Time t payoffs used to compare with continuation values.
+        """
+        continuation_values = phi @ beta
+
+        return payoffs[t] > pd.Series(continuation_values, index=underlying_asset_paths.index
+                            ).reindex(payoffs[t].index)
+
+    def calibration(
+        self,
+        underlying_asset_paths: pd.DataFrame,
+        payoffs: pd.DataFrame,
+        discount_factors: pd.DataFrame,
+    ) -> pd.DataFrame:
+        """
+        Calibrates the regression coefficients by backwards recursion.
+        Returns in-sample price estimate and coefficients.
+
+        underlying_asset_paths: Simulated paths of underlying asset.
+        payoffs: Time t payoffs of the option given the underlying asset paths.
+        discount_factors: Discount factors for each t to discount from t+1 to t.
+        """
+        degree = self.basis_function[1]
+        betas = {}
+        cashflows = (
+            payoffs[self.exercise_dates[-1]]
+        )
+        discounted_stock_paths = (
+            underlying_asset_paths[self.exercise_dates[-1]]
+        )
+
+        for i in range(len(self.exercise_dates) - 2, -1, -1):
+            t = self.exercise_dates[i]
+
+            cashflows = cashflows * discount_factors[t]
+            discounted_stock_paths = discounted_stock_paths * discount_factors[t]
+
+            itm_paths = payoffs.index[payoffs[t] > 0].tolist()
+            if itm_paths == []:
+                t_plus_one = self.exercise_dates[i + 1]
+                try:
+                    fitted_basis_functions[t] = fitted_basis_functions[t_plus_one]
+                except:  # WE STILL HAVE A PROBLEM HERE
+                    raise Exception(
+                        f"Unable to calculate regression coefficients for t = {t}"
+                        f" due to to no ITM paths."
+                    )
+
+            itm_cashflows = cashflows[itm_paths].to_numpy()
+            itm_asset_paths = underlying_asset_paths.loc[itm_paths, t]
+            itm_discounted_stock_paths = discounted_stock_paths[itm_paths].to_numpy()
+
+            phi = np.vstack([itm_asset_paths ** i for i in range(0, degree + 1)]).T
+            phi_prime = np.vstack([i * itm_asset_paths ** (i - 1) for i in range(1, degree + 1)]).T
+
+            Z = np.where(itm_cashflows > 0, -itm_discounted_stock_paths / itm_asset_paths, 0)
+
+            betas[t] = self._regression(
+                cashflows=itm_cashflows,phi=phi, phi_prime=phi_prime, Z=Z
+            )
+
+            exercised_paths = self._exercise_evluation(
+                t=t,
+                beta=betas[t],
+                payoffs=payoffs,
+                phi=phi,
+                underlying_asset_paths=itm_asset_paths
+            )
+
+            cashflows.loc[exercised_paths] = payoffs[t].loc[exercised_paths]
+            discounted_stock_paths.loc[exercised_paths] = underlying_asset_paths[t].loc[exercised_paths]
+
+        return sum(cashflows) / len(cashflows), betas
+
+    def estimation(
+        self,
+        underlying_asset_paths: pd.DataFrame,
+        payoffs: pd.DataFrame,
+        discount_factors: pd.DataFrame,
+        betas: dict,
+    ):
+        """
+        Estimates option price given the underlying asset paths, discount factors and calibrated basis functions.
+
+        underlying_asset_paths: Simulated paths of underlying asset.
+        payoffs: Time t payoffs of the option given the underlying asset paths.
+        discount_factors: Discount factors for each t to discount from t+1 to t.
+        fitted_basis_functions: Fitted basis functions as returned by calibration above.
+        """
+        degree = self.basis_function[1]
+        cashflows = pd.Series(0, index=payoffs.index, name="cashflows", dtype=float)
+        for i in range(len(self.exercise_dates)):
+            t = self.exercise_dates[i]
+
+            itm_paths = payoffs.index[payoffs[t] > 0].tolist()
+            itm_asset_paths = underlying_asset_paths.loc[itm_paths, t]
+
+            if t == self.exercise_dates[-1]:
+                cashflows.loc[itm_paths] = payoffs[t].loc[itm_paths] * discount
+                continue
+
+            phi = np.vstack([itm_asset_paths ** i for i in range(0, degree + 1)]).T
+
+            exercised_paths = self._exercise_evluation(
+                    t=t,
+                    beta=betas[t],
+                    payoffs=payoffs,
+                    phi=phi,
+                    underlying_asset_paths=itm_asset_paths,
+                )
+
+            if i > 0:
+                cashflows.loc[exercised_paths] = payoffs[t].loc[exercised_paths] * discount.loc[exercised_paths]
+                discount = discount * discount_factors[t]
+            else:
+                cashflows.loc[exercised_paths] = payoffs[t].loc[exercised_paths]
+                discount = discount_factors[self.exercise_dates[0]]
+
+            payoffs.loc[exercised_paths, t:] = 0
+
+        return sum(cashflows) / len(cashflows)
+
+@dataclass
+class swap_rate_delta_LSM(algorithm):
+    """
+    The classic Longstaff Schwarz Monte-Carlo method.
+    """
+
+    strike: float
+    exercise_dates: list[float, ...]
+    basis_function: tuple[str, int]
+
+    def _loss(self,
+              beta: list[float],
+              Y: pd.DataFrame,
+              Z: pd.DataFrame,
+              phi: pd.DataFrame,
+              phi_prime,
+              _lambda: float) -> float:
+
+        pred = phi @ beta
+        reg = phi_prime @ beta[1:]
+        return np.sum((Y - pred) ** 2) + _lambda * np.sum((Z - reg) ** 2)
+
+    def _regression(
+        self, cashflows: pd.DataFrame, phi: np.array, phi_prime: np.array, Z: pd.DataFrame,
+    ) -> np.ndarray:
+        """
+        Regression calculation performed when calibrating the LSM algorithm
+
+        underlying_asset_values: In-the-money assets.
+        cashflows: In-the-money cashflows used as response variable.
+        """
+        _lambda = (cashflows @ cashflows) / (Z @ Z)
+
+        beta0 = np.zeros(phi.shape[1])
+        result = minimize(self._loss, beta0,
+                          args=(cashflows, Z, phi, phi_prime, _lambda))
+
+        beta = result.x
+        return beta
+
+    def _exercise_evluation(
+            self,
+            t: float,
+            beta: np.array,
+            payoffs: pd.DataFrame,
+            phi: np.array,
+            underlying_asset_paths: pd.DataFrame,
+    ):
+        """
+        Calculates which paths to exercise.
+
+        t: Time of decision.
+        fitted_basis_function: Fitted np.polynomial.polynomial to predict continuation values.
+        underlying_asset_values: In-the-money assets used to estimate continuation value.
+        payoffs: Time t payoffs used to compare with continuation values.
+        """
+        continuation_values = phi @ beta
+
+        return payoffs[t] > pd.Series(continuation_values, index=underlying_asset_paths.index
+                                      ).reindex(payoffs[t].index)
+
+    def calibration(
+        self,
+        swap_rates: pd.DataFrame,
+        accrual_factors: pd.DataFrame,
+        payoffs: pd.DataFrame,
+        discount_factors: pd.DataFrame,
+    ) -> pd.DataFrame:
+        """
+        Calibrates the regression coefficients by backwards recursion.
+        Returns in-sample price estimate and coefficients.
+
+        underlying_asset_paths: Simulated paths of underlying asset.
+        payoffs: Time t payoffs of the option given the underlying asset paths.
+        discount_factors: Discount factors for each t to discount from t+1 to t.
+        """
+        degree = self.basis_function[1]
+        betas = {}
+
+        cashflows = (
+            payoffs[self.exercise_dates[-1]]
+        )
+        exercised_swap_rates = (
+            swap_rates[self.exercise_dates[-1]]
+        )
+        discounted_accrual_factors = (
+            accrual_factors[self.exercise_dates[-1]]
+        )
+
+        for i in range(len(self.exercise_dates) - 2, -1, -1):
+            t = self.exercise_dates[i]
+
+            cashflows = cashflows * discount_factors[t]
+            discounted_accrual_factors = discounted_accrual_factors * discount_factors[t]
+
+            if i == len(self.exercise_dates) - 2:
+                accumulated_discount_factors = discount_factors[t]
+            else:
+                accumulated_discount_factors = accumulated_discount_factors * discount_factors[t]
+
+            itm_paths = payoffs.index[payoffs[t] > 0].tolist()
+            if itm_paths == []:
+                t_plus_one = self.exercise_dates[i + 1]
+                try:
+                    fitted_basis_functions[t] = fitted_basis_functions[t_plus_one]
+                except:  # WE STILL HAVE A PROBLEM HERE
+                    raise Exception(
+                        f"Unable to calculate regression coefficients for t = {t}"
+                        f" due to to no ITM paths."
+                    )
+
+            itm_cashflows = cashflows[itm_paths].to_numpy()
+            itm_asset_paths = swap_rates.loc[itm_paths, t]
+
+            phi = np.vstack([itm_asset_paths ** i for i in range(0, degree + 1)]).T
+            phi_prime = np.vstack([i * itm_asset_paths ** (i - 1) for i in range(1, degree + 1)]).T
+
+            Z = np.where(itm_cashflows > 0, discounted_accrual_factors[itm_paths]
+                         - itm_cashflows / itm_asset_paths, 0)
+
+            betas[t] = self._regression(
+                cashflows=itm_cashflows,phi=phi, phi_prime=phi_prime, Z=Z
+            )
+
+            exercised_paths = self._exercise_evluation(
+                t=t,
+                beta=betas[t],
+                payoffs=payoffs,
+                phi=phi,
+                underlying_asset_paths=itm_asset_paths
+            )
+
+            cashflows.loc[exercised_paths] = payoffs[t].loc[exercised_paths]
+            accumulated_discount_factors.loc[exercised_paths] = 1
+            exercised_swap_rates.loc[exercised_paths] = swap_rates[t].loc[exercised_paths]
+
+        return sum(cashflows) / len(cashflows), betas
+
+    def estimation(
+            self,
+            underlying_asset_paths: pd.DataFrame,
+            payoffs: pd.DataFrame,
+            discount_factors: pd.DataFrame,
+            betas: dict,
+    ):
+        """
+        Estimates option price given the underlying asset paths, discount factors and calibrated basis functions.
+
+        underlying_asset_paths: Simulated paths of underlying asset.
+        payoffs: Time t payoffs of the option given the underlying asset paths.
+        discount_factors: Discount factors for each t to discount from t+1 to t.
+        fitted_basis_functions: Fitted basis functions as returned by calibration above.
+        """
+        degree = self.basis_function[1]
+        cashflows = pd.Series(0, index=payoffs.index, name="cashflows", dtype=float)
+        for i in range(len(self.exercise_dates)):
+            t = self.exercise_dates[i]
+
+            itm_paths = payoffs.index[payoffs[t] > 0].tolist()
+            itm_asset_paths = underlying_asset_paths.loc[itm_paths, t]
+
+            if t == self.exercise_dates[-1]:
+                cashflows.loc[itm_paths] = payoffs[t].loc[itm_paths] * discount
+                continue
+
+            phi = np.vstack([itm_asset_paths ** i for i in range(0, degree + 1)]).T
+
+            exercised_paths = self._exercise_evluation(
+                t=t,
+                beta=betas[t],
+                payoffs=payoffs,
+                phi=phi,
+                underlying_asset_paths=itm_asset_paths,
+            )
+
+            if i > 0:
+                cashflows.loc[exercised_paths] = payoffs[t].loc[exercised_paths] * discount.loc[exercised_paths]
+                discount = discount * discount_factors[t]
+            else:
+                cashflows.loc[exercised_paths] = payoffs[t].loc[exercised_paths]
+                discount = discount_factors[self.exercise_dates[0]]
+
+            payoffs.loc[exercised_paths, t:] = 0
+
+        return sum(cashflows) / len(cashflows)
+
+@dataclass
+class short_rate_delta_LSM(algorithm):
+    """
+    The classic Longstaff Schwarz Monte-Carlo method.
+    """
+
+    strike: float
+    exercise_dates: list[float, ...]
+    basis_function: tuple[str, int]
+
+    def _loss(self,
+              beta: list[float],
+              Y: pd.DataFrame,
+              Z: pd.DataFrame,
+              phi: pd.DataFrame,
+              phi_prime,
+              _lambda: float) -> float:
+
+        pred = phi @ beta
+        reg = phi_prime @ beta[1:]
+        return np.sum((Y - pred) ** 2) + _lambda * np.sum((Z - reg) ** 2)
+
+    def _regression(
+        self, cashflows: pd.DataFrame, phi: np.array, phi_prime: np.array, Z: pd.DataFrame,
+    ) -> np.ndarray:
+        """
+        Regression calculation performed when calibrating the LSM algorithm
+
+        underlying_asset_values: In-the-money assets.
+        cashflows: In-the-money cashflows used as response variable.
+        """
+        _lambda = (cashflows @ cashflows) / (Z @ Z)
+
+        beta0 = np.zeros(phi.shape[1])
+        result = minimize(self._loss, beta0,
+                          args=(cashflows, Z, phi, phi_prime, _lambda))
+
+        beta = result.x
+        return beta
+
+    def _exercise_evluation(
+            self,
+            t: float,
+            beta: np.array,
+            payoffs: pd.DataFrame,
+            phi: np.array,
+            underlying_asset_paths: pd.DataFrame,
+    ):
+        """
+        Calculates which paths to exercise.
+
+        t: Time of decision.
+        fitted_basis_function: Fitted np.polynomial.polynomial to predict continuation values.
+        underlying_asset_values: In-the-money assets used to estimate continuation value.
+        payoffs: Time t payoffs used to compare with continuation values.
+        """
+        continuation_values = phi @ beta
+
+        return payoffs[t] > pd.Series(continuation_values, index=underlying_asset_paths.index
+                                      ).reindex(payoffs[t].index)
+
+    def calibration(
+        self,
+        swap_rates: pd.DataFrame,
+        accrual_factors: pd.DataFrame,
+        payoffs: pd.DataFrame,
+        discount_factors: pd.DataFrame,
+        a: float,
+    ) -> pd.DataFrame:
+        """
+        Calibrates the regression coefficients by backwards recursion.
+        Returns in-sample price estimate and coefficients.
+
+        underlying_asset_paths: Simulated paths of underlying asset.
+        payoffs: Time t payoffs of the option given the underlying asset paths.
+        discount_factors: Discount factors for each t to discount from t+1 to t.
+        """
+        degree = self.basis_function[1]
+        betas = {}
+
+        tau =  pd.Series(self.exercise_dates[-1], index=payoffs.index)
+
+        cashflows = (
+            payoffs[self.exercise_dates[-1]]
+        )
+        exercised_swap_rates = (
+            swap_rates[self.exercise_dates[-1]]
+        )
+        discounted_accrual_factors = (
+            accrual_factors[self.exercise_dates[-1]]
+        )
+
+        for i in range(len(self.exercise_dates) - 2, -1, -1):
+            t = self.exercise_dates[i]
+
+            cashflows = cashflows * discount_factors[t]
+            discounted_accrual_factors = discounted_accrual_factors * discount_factors[t]
+
+            if i == len(self.exercise_dates) - 2:
+                accumulated_discount_factors = discount_factors[t]
+            else:
+                accumulated_discount_factors = accumulated_discount_factors * discount_factors[t]
+
+            itm_paths = payoffs.index[payoffs[t] > 0].tolist()
+            if itm_paths == []:
+                t_plus_one = self.exercise_dates[i + 1]
+                try:
+                    fitted_basis_functions[t] = fitted_basis_functions[t_plus_one]
+                except:  # WE STILL HAVE A PROBLEM HERE
+                    raise Exception(
+                        f"Unable to calculate regression coefficients for t = {t}"
+                        f" due to to no ITM paths."
+                    )
+
+            itm_cashflows = cashflows[itm_paths].to_numpy()
+            itm_asset_paths = swap_rates.loc[itm_paths, t]
+
+            phi = np.vstack([itm_asset_paths ** i for i in range(0, degree + 1)]).T
+            phi_prime = np.vstack([i * itm_asset_paths ** (i - 1) for i in range(1, degree + 1)]).T
+
+            Z = np.where(itm_cashflows > 0, np.exp(-a * (tau.loc[itm_paths] - t)), 0)
+
+            betas[t] = self._regression(
+                cashflows=itm_cashflows,phi=phi, phi_prime=phi_prime, Z=Z
+            )
+
+            exercised_paths = self._exercise_evluation(
+                t=t,
+                beta=betas[t],
+                payoffs=payoffs,
+                phi=phi,
+                underlying_asset_paths=itm_asset_paths
+            )
+
+
+            cashflows.loc[exercised_paths] = payoffs[t].loc[exercised_paths]
+            exercised_swap_rates.loc[exercised_paths] = swap_rates[t].loc[exercised_paths]
+            tau.loc[exercised_paths] = t
+
+            accumulated_discount_factors.loc[exercised_paths] = 1
+
+        return sum(cashflows) / len(cashflows), betas
+
+    def estimation(
+            self,
+            underlying_asset_paths: pd.DataFrame,
+            payoffs: pd.DataFrame,
+            discount_factors: pd.DataFrame,
+            betas: dict,
+    ):
+        """
+        Estimates option price given the underlying asset paths, discount factors and calibrated basis functions.
+
+        underlying_asset_paths: Simulated paths of underlying asset.
+        payoffs: Time t payoffs of the option given the underlying asset paths.
+        discount_factors: Discount factors for each t to discount from t+1 to t.
+        fitted_basis_functions: Fitted basis functions as returned by calibration above.
+        """
+        degree = self.basis_function[1]
+        cashflows = pd.Series(0, index=payoffs.index, name="cashflows", dtype=float)
+        for i in range(len(self.exercise_dates)):
+            t = self.exercise_dates[i]
+
+            itm_paths = payoffs.index[payoffs[t] > 0].tolist()
+            itm_asset_paths = underlying_asset_paths.loc[itm_paths, t]
+
+            if t == self.exercise_dates[-1]:
+                cashflows.loc[itm_paths] = payoffs[t].loc[itm_paths] * discount
+                continue
+
+            phi = np.vstack([itm_asset_paths ** i for i in range(0, degree + 1)]).T
+
+            exercised_paths = self._exercise_evluation(
+                t=t,
+                beta=betas[t],
+                payoffs=payoffs,
+                phi=phi,
+                underlying_asset_paths=itm_asset_paths,
+            )
+
+            if i > 0:
+                cashflows.loc[exercised_paths] = payoffs[t].loc[exercised_paths] * discount.loc[exercised_paths]
+                discount = discount * discount_factors[t]
+            else:
+                cashflows.loc[exercised_paths] = payoffs[t].loc[exercised_paths]
+                discount = discount_factors[self.exercise_dates[0]]
+
+            payoffs.loc[exercised_paths, t:] = 0
 
         return sum(cashflows) / len(cashflows)
