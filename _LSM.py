@@ -173,7 +173,7 @@ class LSM_method_v1(algorithm):
 @dataclass
 class LSM_method_v2(algorithm):
     """
-    An implementation of the LSM algorithm using power polynomials and posibly delta regularization.
+    An implementation of the LSM algorithm using power polynomials and optionally delta regularization.
     """
 
     strike: float
@@ -205,10 +205,7 @@ class LSM_method_v2(algorithm):
             Z: pd.DataFrame | None = None
     ) -> np.ndarray:
         """
-        Regression calculation performed when calibrating the LSM algorithm
-
-        underlying_asset_values: In-the-money assets.
-        cashflows: In-the-money cashflows used as response variable.
+        Estimating beta coefficients for polynomial fit.
         """
         beta0 = np.zeros(phi.shape[1])
 
@@ -234,9 +231,10 @@ class LSM_method_v2(algorithm):
         Calculates which paths to exercise.
 
         t: Time of decision.
-        fitted_basis_function: Fitted np.polynomial.polynomial to predict continuation values.
-        underlying_asset_values: In-the-money assets used to estimate continuation value.
+        beta: Fitted beta coefficients to predict continuation values.
         payoffs: Time t payoffs used to compare with continuation values.
+        phi: Phi function of the underlying
+        underlying_asset_paths: Simulated paths of underlying asset.
         """
         continuation_values = phi @ beta
 
@@ -253,15 +251,24 @@ class LSM_method_v2(algorithm):
         a: float | None = None
     ) -> pd.DataFrame:
         """
-        Calibrates the regression coefficients by backwards recursion.
+        Calibrates the regression beta coefficients by backwards recursion.
         Returns in-sample price estimate and coefficients.
 
+        method: Specify which regression method to use.
         underlying_asset_paths: Simulated paths of underlying asset.
         payoffs: Time t payoffs of the option given the underlying asset paths.
         discount_factors: Discount factors for each t to discount from t+1 to t.
+        accrual_factors: Simulated accrual factors for swap rate delta regularization. Optional argument.
+        a: a parameter from the Vasicek model for short rate delta regularization. Optional argument.
         """
         if method not in ['classic', 'stock_delta', 'swap_delta', 'short_rate_delta']:
             raise ValueError(f"{method} is not a valid calibration method.")
+
+        if method == 'swap_delta' and accrual_factors is None:
+            raise ValueError(f"No accrual_factors provided for swap rate delta regularization.")
+
+        if method == 'short_rate_delta' and a is None:
+            raise ValueError(f"No 'a' parameter provided for short rate delta regularization.")
 
         degree = self.degree
         betas = {}
