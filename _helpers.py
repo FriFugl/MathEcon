@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+from scipy.special import ndtr
 
 
 def _short_rate_to_discount_factors(short_rates: pd.DataFrame) -> pd.DataFrame:
@@ -72,3 +73,18 @@ def _calculate_option_payoffs(
         return np.maximum(stock_paths - strike, 0)
     else:
         return np.maximum(strike - stock_paths, 0)
+
+def _black_swaption_price(swap_rate: float,
+                          accrual_factor: float,
+                          strike: float,
+                          sigma: float,
+                          T_n: float,
+                          type: str = 'payer') -> float:
+
+    d1 = (np.log(swap_rate / strike) + 0.5 * (sigma**2) * T_n) / (sigma*np.sqrt(T_n))
+    d2 = d1 - sigma * np.sqrt(T_n)
+
+    if type == 'payer':
+        return accrual_factor * (swap_rate*ndtr(d1) - strike * ndtr(d2))
+    elif type == 'receiver':
+        return  accrual_factor * (strike * ndtr(-d2) - swap_rate*ndtr(-d1))

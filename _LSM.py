@@ -124,6 +124,11 @@ class LSM_method_v1(algorithm):
 
             cashflows.loc[exercised_paths] = payoffs[t].loc[exercised_paths]
 
+        if self.exercise_dates[0] != 0:
+            discount_times = [col for col in discount_factors.columns if col < self.exercise_dates[0]]
+            cumulative_discount = discount_factors[discount_times].prod(axis=1)
+            cashflows = cashflows * cumulative_discount
+
         return sum(cashflows) / len(cashflows), fitted_basis_functions
 
     def estimation(
@@ -167,6 +172,11 @@ class LSM_method_v1(algorithm):
                 discount = discount_factors[self.exercise_dates[0]]
 
             payoffs.loc[exercised_paths, t:] = 0
+
+        if self.exercise_dates[0] != 0:
+            discount_times = [col for col in discount_factors.columns if col < self.exercise_dates[0]]
+            cumulative_discount = discount_factors[discount_times].prod(axis=1)
+            cashflows = cashflows * cumulative_discount
 
         return sum(cashflows) / len(cashflows)
 
@@ -323,9 +333,7 @@ class LSM_method_v2(algorithm):
             itm_asset_paths = underlying_asset_paths.loc[itm_paths, t]
 
             phi = np.vstack([itm_asset_paths ** i for i in range(0, degree + 1)]).T
-
-            if method != 'classc':
-                phi_prime = np.vstack([i * itm_asset_paths ** (i - 1) for i in range(1, degree + 1)]).T
+            phi_prime = np.vstack([i * itm_asset_paths ** (i - 1) for i in range(1, degree + 1)]).T #maybe not do this if not using delta regularization
 
             if method == 'stock_delta':
                 Z = np.where(itm_cashflows > 0, -discounted_stock_paths[itm_paths] / itm_asset_paths, 0)
@@ -367,6 +375,11 @@ class LSM_method_v2(algorithm):
 
             elif method == 'short_rate_delta':
                 tau.loc[exercised_paths] = t
+
+        if self.exercise_dates[0] != 0:
+            discount_times = [col for col in discount_factors.columns if col < self.exercise_dates[0]]
+            cumulative_discount = discount_factors[discount_times].prod(axis=1)
+            cashflows = cashflows * cumulative_discount
 
         return sum(cashflows) / len(cashflows), betas
 
@@ -415,5 +428,10 @@ class LSM_method_v2(algorithm):
                 discount = discount_factors[self.exercise_dates[0]]
 
             payoffs.loc[exercised_paths, t:] = 0
+
+        if self.exercise_dates[0] != 0:
+            discount_times = [col for col in discount_factors.columns if col < self.exercise_dates[0]]
+            cumulative_discount = discount_factors[discount_times].prod(axis=1)
+            cashflows = cashflows * cumulative_discount
 
         return sum(cashflows) / len(cashflows)
