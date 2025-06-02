@@ -73,6 +73,8 @@ plt.ylabel('$r_{t}$', fontsize=10).set_rotation(0)
 plt.title('Simulation of 5 short rates in the Vasiček model, seed = 10', fontsize=10)
 plt.show()
 ```
+![alt text](https://github.com/FriFugl/MathEcon/blob/setup/demo_files/vasicek_example.png?raw=true)
+
 With market data, we can also use the G2++ model to simulate short rate trjectories 
 ```
 from _short_rate_models import GaussianModel
@@ -97,7 +99,6 @@ GaussianModelInstance = GaussianModel(a=0.3, b=0.3, sigma=0.015, eta=0.015, rho=
 simulated_short_rates = GaussianModelInstance.simulate(T=10, M=120, N=5, method='euler', seed=10)
 ````
 Note that this code will return $r(t), x(t), y(t)$ and $\varphi(t)$.
-![alt text](https://github.com/FriFugl/MathEcon/blob/setup/demo_files/vasicek_example.png?raw=true)
 #### Calculating ZCB prices, swap rates and accrual factors
 With the short rates from the Vasiček model we can calculate ZCB prices and swap details with
 ```
