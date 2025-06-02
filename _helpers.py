@@ -74,12 +74,15 @@ def _calculate_option_payoffs(
     else:
         return np.maximum(strike - stock_paths, 0)
 
-def _black_swaption_price(swap_rate: float,
-                          accrual_factor: float,
-                          strike: float,
-                          sigma: float,
-                          T_n: float,
-                          type: str = 'payer') -> float:
+
+def _black_swaption_price(
+    swap_rate: float,
+    accrual_factor: float,
+    strike: float,
+    sigma: float,
+    T_n: float,
+    type: str = "payer",
+) -> float:
     """
     Function to calculate European swaption prices using the Black-76 formula.
 
@@ -91,10 +94,10 @@ def _black_swaption_price(swap_rate: float,
     type: Payer/Receiver swap type.
     """
 
-    d1 = (np.log(swap_rate / strike) + 0.5 * (sigma**2) * T_n) / (sigma*np.sqrt(T_n))
+    d1 = (np.log(swap_rate / strike) + 0.5 * (sigma**2) * T_n) / (sigma * np.sqrt(T_n))
     d2 = d1 - sigma * np.sqrt(T_n)
 
-    if type == 'payer':
-        return accrual_factor * (swap_rate*ndtr(d1) - strike * ndtr(d2))
-    elif type == 'receiver':
-        return  accrual_factor * (strike * ndtr(-d2) - swap_rate*ndtr(-d1))
+    if type == "payer":
+        return accrual_factor * (swap_rate * ndtr(d1) - strike * ndtr(d2))
+    elif type == "receiver":
+        return accrual_factor * (strike * ndtr(-d2) - swap_rate * ndtr(-d1))

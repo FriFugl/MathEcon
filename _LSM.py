@@ -88,9 +88,7 @@ class LSM_method_v1(algorithm):
         """
 
         fitted_basis_functions = {}
-        cashflows = (
-            payoffs[self.exercise_dates[-1]]
-        )
+        cashflows = payoffs[self.exercise_dates[-1]]
 
         for i in range(len(self.exercise_dates) - 2, -1, -1):
             t = self.exercise_dates[i]
@@ -125,7 +123,9 @@ class LSM_method_v1(algorithm):
             cashflows.loc[exercised_paths] = payoffs[t].loc[exercised_paths]
 
         if self.exercise_dates[0] != 0:
-            discount_times = [col for col in discount_factors.columns if col < self.exercise_dates[0]]
+            discount_times = [
+                col for col in discount_factors.columns if col < self.exercise_dates[0]
+            ]
             cumulative_discount = discount_factors[discount_times].prod(axis=1)
             cashflows = cashflows * cumulative_discount
 
@@ -154,7 +154,9 @@ class LSM_method_v1(algorithm):
             itm_asset_paths = underlying_asset_paths.loc[itm_paths, t]
 
             if t == self.exercise_dates[-1]:
-                cashflows.loc[itm_paths] = payoffs[t].loc[itm_paths] * discount.loc[itm_paths]
+                cashflows.loc[itm_paths] = (
+                    payoffs[t].loc[itm_paths] * discount.loc[itm_paths]
+                )
                 continue
 
             exercised_paths = self._exercise_evluation(
@@ -165,7 +167,9 @@ class LSM_method_v1(algorithm):
             )
 
             if i > 0:
-                cashflows.loc[exercised_paths] = payoffs[t].loc[exercised_paths] * discount.loc[exercised_paths]
+                cashflows.loc[exercised_paths] = (
+                    payoffs[t].loc[exercised_paths] * discount.loc[exercised_paths]
+                )
                 discount = discount * discount_factors[t]
             else:
                 cashflows.loc[exercised_paths] = payoffs[t].loc[exercised_paths]
@@ -174,11 +178,14 @@ class LSM_method_v1(algorithm):
             payoffs.loc[exercised_paths, t:] = 0
 
         if self.exercise_dates[0] != 0:
-            discount_times = [col for col in discount_factors.columns if col < self.exercise_dates[0]]
+            discount_times = [
+                col for col in discount_factors.columns if col < self.exercise_dates[0]
+            ]
             cumulative_discount = discount_factors[discount_times].prod(axis=1)
             cashflows = cashflows * cumulative_discount
 
         return sum(cashflows) / len(cashflows)
+
 
 @dataclass
 class LSM_method_v2(algorithm):
@@ -190,14 +197,15 @@ class LSM_method_v2(algorithm):
     exercise_dates: list[float, ...]
     degree: int
 
-    def _loss(self,
-              beta: list[float],
-              Y: pd.DataFrame,
-              phi: pd.DataFrame,
-              phi_prime,
-              _lambda: float | None = None,
-              Z: pd.DataFrame | None = None
-              ) -> float:
+    def _loss(
+        self,
+        beta: list[float],
+        Y: pd.DataFrame,
+        phi: pd.DataFrame,
+        phi_prime,
+        _lambda: float | None = None,
+        Z: pd.DataFrame | None = None,
+    ) -> float:
 
         pred = phi @ beta
         reg = phi_prime @ beta[1:]
@@ -208,11 +216,12 @@ class LSM_method_v2(algorithm):
             return np.sum((Y - pred) ** 2) + _lambda * np.sum((Z - reg) ** 2)
 
     def _regression(
-        self, cashflows: pd.DataFrame,
-            phi: np.array,
-            phi_prime: np.array,
-            _lambda: pd.DataFrame | None = None,
-            Z: pd.DataFrame | None = None
+        self,
+        cashflows: pd.DataFrame,
+        phi: np.array,
+        phi_prime: np.array,
+        _lambda: pd.DataFrame | None = None,
+        Z: pd.DataFrame | None = None,
     ) -> np.ndarray:
         """
         Estimating beta coefficients for polynomial fit.
@@ -220,22 +229,22 @@ class LSM_method_v2(algorithm):
         beta0 = np.zeros(phi.shape[1])
 
         if _lambda == None and Z == None:
-            result = minimize(self._loss, beta0,
-                            args=(cashflows, phi, phi_prime))
+            result = minimize(self._loss, beta0, args=(cashflows, phi, phi_prime))
         else:
-            result = minimize(self._loss, beta0,
-                              args=(cashflows, phi, phi_prime, _lambda, Z))
+            result = minimize(
+                self._loss, beta0, args=(cashflows, phi, phi_prime, _lambda, Z)
+            )
 
         beta = result.x
         return beta
 
     def _exercise_evluation(
-            self,
-            t: float,
-            beta: np.array,
-            payoffs: pd.DataFrame,
-            phi: np.array,
-            underlying_asset_paths: pd.DataFrame,
+        self,
+        t: float,
+        beta: np.array,
+        payoffs: pd.DataFrame,
+        phi: np.array,
+        underlying_asset_paths: pd.DataFrame,
     ):
         """
         Calculates which paths to exercise.
@@ -248,8 +257,9 @@ class LSM_method_v2(algorithm):
         """
         continuation_values = phi @ beta
 
-        return payoffs[t] > pd.Series(continuation_values, index=underlying_asset_paths.index
-                                      ).reindex(payoffs[t].index)
+        return payoffs[t] > pd.Series(
+            continuation_values, index=underlying_asset_paths.index
+        ).reindex(payoffs[t].index)
 
     def calibration(
         self,
@@ -258,7 +268,7 @@ class LSM_method_v2(algorithm):
         payoffs: pd.DataFrame,
         discount_factors: pd.DataFrame,
         accrual_factors: pd.DataFrame | None = None,
-        a: float | None = None
+        a: float | None = None,
     ) -> pd.DataFrame:
         """
         Calibrates the regression beta coefficients by backwards recursion.
@@ -271,35 +281,31 @@ class LSM_method_v2(algorithm):
         accrual_factors: Simulated accrual factors for swap rate delta regularization. Optional argument.
         a: a parameter from the Vasicek model for short rate delta regularization. Optional argument.
         """
-        if method not in ['classic', 'stock_delta', 'swap_delta', 'short_rate_delta']:
+        if method not in ["classic", "stock_delta", "swap_delta", "short_rate_delta"]:
             raise ValueError(f"{method} is not a valid calibration method.")
 
-        if method == 'swap_delta' and accrual_factors is None:
-            raise ValueError(f"No accrual_factors provided for swap rate delta regularization.")
+        if method == "swap_delta" and accrual_factors is None:
+            raise ValueError(
+                f"No accrual_factors provided for swap rate delta regularization."
+            )
 
-        if method == 'short_rate_delta' and a is None:
-            raise ValueError(f"No 'a' parameter provided for short rate delta regularization.")
+        if method == "short_rate_delta" and a is None:
+            raise ValueError(
+                f"No 'a' parameter provided for short rate delta regularization."
+            )
 
         degree = self.degree
         betas = {}
 
-        cashflows = (
-            payoffs[self.exercise_dates[-1]]
-        )
+        cashflows = payoffs[self.exercise_dates[-1]]
 
-        if method == 'stock_delta':
-            discounted_stock_paths = (
-                underlying_asset_paths[self.exercise_dates[-1]]
-            )
+        if method == "stock_delta":
+            discounted_stock_paths = underlying_asset_paths[self.exercise_dates[-1]]
 
-        elif method in 'swap_delta':
-            exercised_swap_rates = (
-                underlying_asset_paths[self.exercise_dates[-1]]
-            )
-            discounted_accrual_factors = (
-                accrual_factors[self.exercise_dates[-1]]
-            )
-        elif method == 'short_rate_delta':
+        elif method in "swap_delta":
+            exercised_swap_rates = underlying_asset_paths[self.exercise_dates[-1]]
+            discounted_accrual_factors = accrual_factors[self.exercise_dates[-1]]
+        elif method == "short_rate_delta":
             tau = pd.Series(self.exercise_dates[-1], index=payoffs.index)
 
         for i in range(len(self.exercise_dates) - 2, -1, -1):
@@ -307,16 +313,20 @@ class LSM_method_v2(algorithm):
 
             cashflows = cashflows * discount_factors[t]
 
-            if method == 'stock_delta':
+            if method == "stock_delta":
                 discounted_stock_paths = discounted_stock_paths * discount_factors[t]
 
-            elif method == 'swap_delta':
-                discounted_accrual_factors = discounted_accrual_factors * discount_factors[t]
+            elif method == "swap_delta":
+                discounted_accrual_factors = (
+                    discounted_accrual_factors * discount_factors[t]
+                )
 
                 if i == len(self.exercise_dates) - 2:
                     accumulated_discount_factors = discount_factors[t]
                 else:
-                    accumulated_discount_factors = accumulated_discount_factors * discount_factors[t]
+                    accumulated_discount_factors = (
+                        accumulated_discount_factors * discount_factors[t]
+                    )
 
             itm_paths = payoffs.index[payoffs[t] > 0].tolist()
             if itm_paths == []:
@@ -332,18 +342,30 @@ class LSM_method_v2(algorithm):
             itm_cashflows = cashflows[itm_paths].to_numpy()
             itm_asset_paths = underlying_asset_paths.loc[itm_paths, t]
 
-            phi = np.vstack([itm_asset_paths ** i for i in range(0, degree + 1)]).T
-            phi_prime = np.vstack([i * itm_asset_paths ** (i - 1) for i in range(1, degree + 1)]).T #maybe not do this if not using delta regularization
+            phi = np.vstack([itm_asset_paths**i for i in range(0, degree + 1)]).T
+            phi_prime = np.vstack(
+                [i * itm_asset_paths ** (i - 1) for i in range(1, degree + 1)]
+            ).T  # maybe not do this if not using delta regularization
 
-            if method == 'stock_delta':
-                Z = np.where(itm_cashflows > 0, -discounted_stock_paths[itm_paths] / itm_asset_paths, 0)
+            if method == "stock_delta":
+                Z = np.where(
+                    itm_cashflows > 0,
+                    -discounted_stock_paths[itm_paths] / itm_asset_paths,
+                    0,
+                )
 
-            elif method == 'swap_delta':
-                Z = np.where(itm_cashflows > 0, discounted_accrual_factors[itm_paths]
-                             - itm_cashflows / itm_asset_paths, 0)
+            elif method == "swap_delta":
+                Z = np.where(
+                    itm_cashflows > 0,
+                    discounted_accrual_factors[itm_paths]
+                    - itm_cashflows / itm_asset_paths,
+                    0,
+                )
 
-            elif method == 'short_rate_delta':
-                Z = np.where(itm_cashflows > 0, np.exp(-a * (tau.loc[itm_paths] - t)), 0)
+            elif method == "short_rate_delta":
+                Z = np.where(
+                    itm_cashflows > 0, np.exp(-a * (tau.loc[itm_paths] - t)), 0
+                )
             else:
                 Z = None
 
@@ -353,7 +375,11 @@ class LSM_method_v2(algorithm):
                 _lambda = None
 
             betas[t] = self._regression(
-                cashflows=itm_cashflows,phi=phi, phi_prime=phi_prime, _lambda=_lambda, Z=Z
+                cashflows=itm_cashflows,
+                phi=phi,
+                phi_prime=phi_prime,
+                _lambda=_lambda,
+                Z=Z,
             )
 
             exercised_paths = self._exercise_evluation(
@@ -361,34 +387,40 @@ class LSM_method_v2(algorithm):
                 beta=betas[t],
                 payoffs=payoffs,
                 phi=phi,
-                underlying_asset_paths=itm_asset_paths
+                underlying_asset_paths=itm_asset_paths,
             )
 
             cashflows.loc[exercised_paths] = payoffs[t].loc[exercised_paths]
 
-            if method == 'stock_delta':
-                discounted_stock_paths.loc[exercised_paths] = underlying_asset_paths[t].loc[exercised_paths]
+            if method == "stock_delta":
+                discounted_stock_paths.loc[exercised_paths] = underlying_asset_paths[
+                    t
+                ].loc[exercised_paths]
 
-            elif method == 'swap_delta':
+            elif method == "swap_delta":
                 accumulated_discount_factors.loc[exercised_paths] = 1
-                exercised_swap_rates.loc[exercised_paths] = underlying_asset_paths[t].loc[exercised_paths]
+                exercised_swap_rates.loc[exercised_paths] = underlying_asset_paths[
+                    t
+                ].loc[exercised_paths]
 
-            elif method == 'short_rate_delta':
+            elif method == "short_rate_delta":
                 tau.loc[exercised_paths] = t
 
         if self.exercise_dates[0] != 0:
-            discount_times = [col for col in discount_factors.columns if col < self.exercise_dates[0]]
+            discount_times = [
+                col for col in discount_factors.columns if col < self.exercise_dates[0]
+            ]
             cumulative_discount = discount_factors[discount_times].prod(axis=1)
             cashflows = cashflows * cumulative_discount
 
         return sum(cashflows) / len(cashflows), betas
 
     def estimation(
-            self,
-            underlying_asset_paths: pd.DataFrame,
-            payoffs: pd.DataFrame,
-            discount_factors: pd.DataFrame,
-            betas: dict,
+        self,
+        underlying_asset_paths: pd.DataFrame,
+        payoffs: pd.DataFrame,
+        discount_factors: pd.DataFrame,
+        betas: dict,
     ):
         """
         Estimates option price given the underlying asset paths, discount factors and calibrated basis functions.
@@ -410,7 +442,7 @@ class LSM_method_v2(algorithm):
                 cashflows.loc[itm_paths] = payoffs[t].loc[itm_paths] * discount
                 continue
 
-            phi = np.vstack([itm_asset_paths ** i for i in range(0, degree + 1)]).T
+            phi = np.vstack([itm_asset_paths**i for i in range(0, degree + 1)]).T
 
             exercised_paths = self._exercise_evluation(
                 t=t,
@@ -421,7 +453,9 @@ class LSM_method_v2(algorithm):
             )
 
             if i > 0:
-                cashflows.loc[exercised_paths] = payoffs[t].loc[exercised_paths] * discount.loc[exercised_paths]
+                cashflows.loc[exercised_paths] = (
+                    payoffs[t].loc[exercised_paths] * discount.loc[exercised_paths]
+                )
                 discount = discount * discount_factors[t]
             else:
                 cashflows.loc[exercised_paths] = payoffs[t].loc[exercised_paths]
@@ -430,7 +464,9 @@ class LSM_method_v2(algorithm):
             payoffs.loc[exercised_paths, t:] = 0
 
         if self.exercise_dates[0] != 0:
-            discount_times = [col for col in discount_factors.columns if col < self.exercise_dates[0]]
+            discount_times = [
+                col for col in discount_factors.columns if col < self.exercise_dates[0]
+            ]
             cumulative_discount = discount_factors[discount_times].prod(axis=1)
             cashflows = cashflows * cumulative_discount
 

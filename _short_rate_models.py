@@ -114,7 +114,9 @@ class VasicekModel(StochasticProcess):
         accrual_factors = {}
 
         for date in entry_dates:
-            start_date = min(i for i in np.arange(0, expiry + alpha, alpha) if i > date + 1e-5)
+            start_date = min(
+                i for i in np.arange(0, expiry + alpha, alpha) if i > date + 1e-5
+            )
             swap_annuities = np.arange(start_date, expiry + alpha, alpha)
 
             zcb_prices = self.price_zcb(
@@ -288,12 +290,11 @@ class GaussianModel(StochasticProcess):
         zcb_prices = pd.DataFrame(index=range(1, num_rows + 1))
 
         for i in range(len(maturities)):
-            T =  maturities[i]
+            T = maturities[i]
             if i == 0:
                 varphi_integral = varphi[T] * (T - t)
             else:
-                varphi_integral += varphi[T] * (T - maturities[i-1])
-
+                varphi_integral += varphi[T] * (T - maturities[i - 1])
 
             zcb_prices[maturities[i]] = np.exp(
                 -varphi_integral
@@ -305,7 +306,13 @@ class GaussianModel(StochasticProcess):
         return zcb_prices
 
     def swap_rate(
-        self, x_paths: pd.DataFrame, y_paths: pd.DataFrame, varphi: list[float], entry_dates: float, expiry: float, alpha: float
+        self,
+        x_paths: pd.DataFrame,
+        y_paths: pd.DataFrame,
+        varphi: list[float],
+        entry_dates: float,
+        expiry: float,
+        alpha: float,
     ) -> pd.DataFrame:
         """
         Convert short rates in a Vasicek model to swap rates.
@@ -323,7 +330,11 @@ class GaussianModel(StochasticProcess):
             swap_annuities = np.arange(start_date, expiry + alpha, alpha)
 
             zcb_prices = self.price_zcb(
-                x_paths=x_paths, y_paths=y_paths, varphi=varphi, t=date, maturities=swap_annuities
+                x_paths=x_paths,
+                y_paths=y_paths,
+                varphi=varphi,
+                t=date,
+                maturities=swap_annuities,
             )
 
             R, S = _calculate_swap_rate_and_accrual_factor(
