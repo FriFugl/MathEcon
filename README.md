@@ -51,17 +51,17 @@ $$ V(t,T) = \frac{\sigma^{2}}{a^{2}}\left[T-t+\frac{2}{a}e^{-a(T-t)}-\frac{1}{2a
 
 In this case the ZCB prices are given by
 
-$$P(t,T) = \exp\left[-\int_{t}^{T}\varphi(u)du - \frac{1-e^{-a(T-t)}}{a}x(t) -\frac{1-e^{-b(T-t)}}{b}y(t) + \frac{1}{2}V(t,T) \right]$$
+$$P(t,T) = \exp\left[-\int_{t}^{T}\varphi(u)du - \frac{1-e^{-a(T-t)}}{a}x(t) -\frac{1-e^{-b(T-t)}}{b}y(t) + \frac{1}{2}V(t,T) \right].$$
 
 ### Usage
 #### Simulating the short rate
 Here is an example of using the Vasicek model from `_short_rate_models`
 ```
 from _short_rate_models import VasicekModel
-VasicekModel = VasicekModel(a=1, b=0.05, sigma=0.04) #Initiate model
+VasicekModelInstance = VasicekModel(a=1, b=0.05, sigma=0.04) #Initiate model
 
 # M = number of discretization points, N = number of paths, seed is a keyword argument
-simulated_short_rates = VasicekModel.simulate(r_0=0.03, T=10, M=120, N=5, method='exact', seed=10)
+simulated_short_rates = VasicekModelInstance.simulate(r_0=0.03, T=10, M=120, N=5, method='exact', seed=10)
 ```
 which will create a $N\times M$ pandas dataframe such that each row corresponds to the trajectories of the short rate. Example result is plotted below.
 ```
@@ -73,19 +73,43 @@ plt.ylabel('$r_{t}$', fontsize=10).set_rotation(0)
 plt.title('Simulation of 5 short rates in the Vasiček model, seed = 10', fontsize=10)
 plt.show()
 ```
+With market data, we can also use the G2++ model to simulate short rate trjectories 
+```
+from _short_rate_models import GaussianModel
+
+maturities = [0.25, 0.5, 0.75, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
+                     24, 25, 26, 27, 28, 29, 30]
+
+market_forward_rates = [0.01994856, 0.01822685, 0.01765761, 0.01783725, 0.02170101, 0.02635789, 0.03030434, 0.03347647,
+                    0.03601030, 0.03802344, 0.03959990, 0.04080202, 0.04167972, 0.04227533, 0.04262579, 0.04276381,
+                    0.04271855, 0.04251598, 0.04217923, 0.04172893, 0.04118338, 0.04055885, 0.03986971, 0.03912868,
+                    0.03834697, 0.03753442, 0.03669967, 0.03585026, 0.03499273, 0.03413278, 0.03327529, 0.03242447,
+                    0.03158388
+                    ]
+
+instant_forward_rates = dict(zip(maturities, market_forward_rates))
+
+GaussianModelInstance = GaussianModel(a=0.3, b=0.3, sigma=0.015, eta=0.015, rho=-0.7,
+                                      instant_forward_rates=instant_forward_rates) #Initiate model
+
+# M = number of discretization points, N = number of paths, 'euler' is the discretization scheme,
+# seed is a keyword argument
+simulated_short_rates = GaussianModelInstance.simulate(T=10, M=120, N=5, method='euler', seed=10)
+````
+Note that this code will return $r(t), x(t), y(t)$ and $\varphi(t)$.
 ![alt text](https://github.com/FriFugl/MathEcon/blob/setup/demo_files/vasicek_example.png?raw=true)
 #### Calculating ZCB prices, swap rates and accrual factors
 With the short rates from the Vasiček model we can calculate ZCB prices and swap details with
 ```
 maturities = [i for i in range(11)]
-ZCB_prices = VasicekModel.price_zcb(short_rates: simulated_short_rates,
+ZCB_prices = VasicekModelInstance.price_zcb(short_rates: simulated_short_rates,
                                     t=0,
                                     maturities=maturities)
 
 T = 10 #Expiry of the swaps
 entry_dates = [i for i in range(9)] #Entry dates of the swap
 alpha = 1 #Time difference between payment of the fixed leg
-swap_rates, accrual_factors = VasicekModel.swap_rate(short_rate=simulated_short_rates,
+swap_rates, accrual_factors = VasicekModelInstance.swap_rate(short_rate=simulated_short_rates,
                                                          entry_dates=exercise_dates,
                                                          expiry=T,
                                                          alpha=alpha)
