@@ -96,11 +96,11 @@ GaussianModelInstance = GaussianModel(a=0.3, b=0.3, sigma=0.015, eta=0.015, rho=
 
 # M = number of discretization points, N = number of paths, 'euler' is the discretization scheme,
 # seed is a keyword argument
-simulated_short_rates = GaussianModelInstance.simulate(T=10, M=120, N=5, method='euler', seed=10)
+simulated_short_rates, simuated_x, simulated_y, fitted_varphi = GaussianModelInstance.simulate(T=10, M=120, N=5, method='euler', seed=10)
 ````
 Note that this code will return $r(t), x(t), y(t)$ and $\varphi(t)$.
 #### Calculating ZCB prices, swap rates and accrual factors
-With the short rates from the Vasiček model we can calculate ZCB prices and swap details with
+With the short rates from the Vasicek model we can calculate ZCB prices and swap details with
 ```
 maturities = [i for i in range(11)]
 ZCB_prices = VasicekModelInstance.price_zcb(short_rates: simulated_short_rates,
@@ -111,9 +111,24 @@ T = 10 #Expiry of the swaps
 entry_dates = [i for i in range(9)] #Entry dates of the swap
 alpha = 1 #Time difference between payment of the fixed leg
 swap_rates, accrual_factors = VasicekModelInstance.swap_rate(short_rate=simulated_short_rates,
-                                                         entry_dates=exercise_dates,
+                                                         entry_dates=entry_dates,
                                                          expiry=T,
                                                          alpha=alpha)
+```
+For the G2++ model, this is done in the following way
+```
+ZCB_prices = GaussianModelInstance.price_zcb(x_paths=simulated_x,
+                                             y_paths=simulated_y,
+                                             varphi=fitted_varphi,
+                                             t=0,
+                                             maturities=maturities)
+
+swap_rates, accrual_factors = GaussianModelInstance.swap_rate(x_paths=simulated_x,
+                                                              y_paths=simulated_y,
+                                                              varphi=fitted_varphi,
+                                                              entry_dates=exercise_dates,
+                                                              expiry=T,
+                                                              alpha=alpha)
 ```
 ## Stock path models
 ### Geometric Brownian motion
