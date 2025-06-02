@@ -52,6 +52,7 @@ $$ V(t,T) = \frac{\sigma^{2}}{a^{2}}\left[T-t+\frac{2}{a}e^{-a(T-t)}-\frac{1}{2a
 On a  discretized time grid $0=t_{0}<t_{1}<\cdots<t_{n-1}<t_{n}=T$ we can then simulated $x(t)$ and $y(t)$ with the following Euler scheme
 
 $$ x(t_{i+1})=x(t_{i})-ax(t_{i})(t_{i+1}-t_{i}) +\sigma\sqrt{t_{i+1}-t_{i}} z_{i}$$
+$$ y(t_{i+1})=y(t_{i})-by(t_{i})(t_{i+1}-t_{i})+\eta\sqrt{t_{i+1}-t_{i}}\left(\rho\Tilde{w}_{i}+\sqrt{1-\rho^{2}}w_{i}\right), $$
 
 for $i>0$ and $x(0)=y(0)=0$. Then we simulated $r(t)$ with
 
