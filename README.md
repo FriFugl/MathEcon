@@ -51,7 +51,7 @@ $$ V(t,T) = \frac{\sigma^{2}}{a^{2}}\left[T-t+\frac{2}{a}e^{-a(T-t)}-\frac{1}{2a
 
 In this case the ZCB prices are given by
 
-$$P(t,T) = \exp\{-\int_{t}^{T}\varphi(u)du - \frac{1-e^{-a(T-t)}}{a}x(t) -\frac{1-e^{-b(T-t)}}{b}y(t) + \frac{1}{2}V(t,T) \}$$
+$$P(t,T) = \exp\left[-\int_{t}^{T}\varphi(u)du - \frac{1-e^{-a(T-t)}}{a}x(t) -\frac{1-e^{-b(T-t)}}{b}y(t) + \frac{1}{2}V(t,T) \right]$$
 
 ### Usage
 #### Simulating the short rate
