@@ -41,7 +41,16 @@ where $x(t)$ and $y(t) have the following dynamics
 $$dx(t) = -ax(t)dt +\sigma dW_{1}(t),$$
 $$dy(t) = -by(t)dt+\eta\rho dW_{1}(t)+\eta\sqrt{1-\rho^{2}}dW_{2}(t)$$
 
-and $\varphi(t)$ is fitted such that the ZCB prices in this models exactly fits the market term structure.
+and $a,b,\sigma,\eta>0$ and $\rho\in[-1,1]$. Furthermore we set
+
+$$\varphi(T) = f^{M}(0,T) + \frac{\sigma^{2}}{2a^{2}}\left(1-e^{-aT}\right)^{2} \\
+         &\quad +\frac{\eta^{2}}{2b^{2}}\left(1-e^{-bT}\right)^{2} + \rho\frac{\sigma\eta}{ab}\left(1-e^{-aT}\right)\left(1-e^{-bT}\right)$$
+
+with
+
+$$ V(t,T) &= \frac{\sigma^{2}}{a^{2}}\left[T-t+\frac{2}{a}e^{-a(T-t)}-\frac{1}{2a}e^{-2a(T-t)}-\frac{3}{2a}\right]\\
+    &\quad + \frac{\eta^{2}}{b^{2}}\left[T-t+\frac{2}{b}e^{-b(T-t)}-\frac{1}{2b}e^{-2b(T-t)}-\frac{3}{2b}\right]\\
+    &\quad +2\rho\frac{\sigma\eta}{ab}\left[T-t+\frac{e^{-a(T-t)}-1}{a}+\frac{e^{-b(T-t)}-1}{b}-\frac{e^{-(a+b)(T-t)}-1}{a+b}\right] $$
 
 ### Usage
 #### Simulating the short rate
