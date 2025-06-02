@@ -34,20 +34,27 @@ where $z_{i}$ is an i.i.d. sequence of standard normal random variables.
 ### The G2++ model
 This model has the following dynamics
 
-$$dr_{t} = x(t) + y(t) + \varphi(t)$$
+$$dr_{t} = x(t) + y(t) + \varphi(t),$$
 
 where $x(t)$ and $y(t) have the following dynamics
 
 $$dx(t) = -ax(t)dt +\sigma dW_{1}(t),$$
-$$dy(t) = -by(t)dt+\eta\rho dW_{1}(t)+\eta\sqrt{1-\rho^{2}}dW_{2}(t)$$
+$$dy(t) = -by(t)dt+\eta\rho dW_{1}(t)+\eta\sqrt{1-\rho^{2}}dW_{2}(t),$$
 
 and $a,b,\sigma,\eta>0$ and $\rho\in[-1,1]$. Furthermore we set
 
 $$\varphi(T) = f^{M}(0,T) + \frac{\sigma^{2}}{2a^{2}}\left(1-e^{-aT}\right)^{2} +\frac{\eta^{2}}{2b^{2}}\left(1-e^{-bT}\right)^{2} + \rho\frac{\sigma\eta}{ab}\left(1-e^{-aT}\right)\left(1-e^{-bT}\right)$$
 
-with
+where $f^{M}(0,T)$ are the instantaneous forward rates implied by the market and
 
-$$ V(t,T) = \frac{\sigma^{2}}{a^{2}}\left[T-t+\frac{2}{a}e^{-a(T-t)}-\frac{1}{2a}e^{-2a(T-t)}-\frac{3}{2a}\right] + \frac{\eta^{2}}{b^{2}}\left[T-t+\frac{2}{b}e^{-b(T-t)}-\frac{1}{2b}e^{-2b(T-t)}-\frac{3}{2b}\right] +2\rho\frac{\sigma\eta}{ab}\left[T-t+\frac{e^{-a(T-t)}-1}{a}+\frac{e^{-b(T-t)}-1}{b}-\frac{e^{-(a+b)(T-t)}-1}{a+b}\right] $$
+$$ V(t,T) = \frac{\sigma^{2}}{a^{2}}\left[T-t+\frac{2}{a}e^{-a(T-t)}-\frac{1}{2a}e^{-2a(T-t)}-\frac{3}{2a}\right] + \frac{\eta^{2}}{b^{2}}\left[T-t+\frac{2}{b}e^{-b(T-t)}-\frac{1}{2b}e^{-2b(T-t)}-\frac{3}{2b}\right] +2\rho\frac{\sigma\eta}{ab}\left[T-t+\frac{e^{-a(T-t)}-1}{a}+\frac{e^{-b(T-t)}-1}{b}-\frac{e^{-(a+b)(T-t)}-1}{a+b}\right]. $$
+
+In this case the ZCB prices are given by
+
+$$P(t,T) = \exp\left\{-\int_{t}^{T}\varphi(u)du 
+        - \frac{1-e^{-a(T-t)}}{a}x(t) \right
+        \left.-\frac{1-e^{-b(T-t)}}{b}y(t) 
+        + \frac{1}{2}V(t,T) \right\}$$
 
 ### Usage
 #### Simulating the short rate
