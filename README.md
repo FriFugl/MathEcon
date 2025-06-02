@@ -47,7 +47,7 @@ $$\varphi(T) = f^{M}(0,T) + \frac{\sigma^{2}}{2a^{2}}\left(1-e^{-aT}\right)^{2} 
 
 with
 
-$$ V(t,T) &= \frac{\sigma^{2}}{a^{2}}\left[T-t+\frac{2}{a}e^{-a(T-t)}-\frac{1}{2a}e^{-2a(T-t)}-\frac{3}{2a}\right] + \frac{\eta^{2}}{b^{2}}\left[T-t+\frac{2}{b}e^{-b(T-t)}-\frac{1}{2b}e^{-2b(T-t)}-\frac{3}{2b}\right] +2\rho\frac{\sigma\eta}{ab}\left[T-t+\frac{e^{-a(T-t)}-1}{a}+\frac{e^{-b(T-t)}-1}{b}-\frac{e^{-(a+b)(T-t)}-1}{a+b}\right] $$
+$$ V(t,T) = \frac{\sigma^{2}}{a^{2}}\left[T-t+\frac{2}{a}e^{-a(T-t)}-\frac{1}{2a}e^{-2a(T-t)}-\frac{3}{2a}\right] + \frac{\eta^{2}}{b^{2}}\left[T-t+\frac{2}{b}e^{-b(T-t)}-\frac{1}{2b}e^{-2b(T-t)}-\frac{3}{2b}\right] +2\rho\frac{\sigma\eta}{ab}\left[T-t+\frac{e^{-a(T-t)}-1}{a}+\frac{e^{-b(T-t)}-1}{b}-\frac{e^{-(a+b)(T-t)}-1}{a+b}\right] $$
 
 ### Usage
 #### Simulating the short rate
