@@ -31,9 +31,13 @@ $$r_{t_{i+1}} = r_{t_{i}} + (b-ar_{t_{i}})(t_{i+1}-t_{i}) + \sigma \sqrt{t_{i+1}
 
 where $z_{i}$ is an i.i.d. sequence of standard normal random variables.
 
+### The G2++ model
+This model has the following dynamics
+$$dr_{t} = x(t) + y(t) + \varphi(t)
+
 ### Usage
 #### Simulating the short rate
-Here is an example of using the Vasiček model from `_short_rate_models`
+Here is an example of using the Vasicek model from `_short_rate_models`
 ```
 from _short_rate_models import VasicekModel
 VasicekModel = VasicekModel(a=1, b=0.05, sigma=0.04) #Initiate model
