@@ -33,7 +33,15 @@ where $z_{i}$ is an i.i.d. sequence of standard normal random variables.
 
 ### The G2++ model
 This model has the following dynamics
-$$dr_{t} = x(t) + y(t) + \varphi(t)
+
+$$dr_{t} = x(t) + y(t) + \varphi(t)$$
+
+where $x(t)$ and $y(t) have the following dynamics
+
+$$dx(t) = -ax(t)dt +\sigma dW_{1}(t),$$
+$$dy(t) = -by(t)dt+\eta\rho dW_{1}(t)+\eta\sqrt{1-\rho^{2}}dW_{2}(t)$$
+
+and $\varphi(t)$ is fitted such that the ZCB prices in this models exactly fits the market term structure.
 
 ### Usage
 #### Simulating the short rate
