@@ -41,7 +41,7 @@ where $x(t)$ and $y(t) have the following dynamics
 $$dx(t) = -ax(t)dt +\sigma dW_{1}(t),$$
 $$dy(t) = -by(t)dt+\eta\rho dW_{1}(t)+\eta\sqrt{1-\rho^{2}}dW_{2}(t),$$
 
-and $a,b,\sigma,\eta>0$ and $\rho\in[-1,1]$. Furthermore we set
+where $x(t)=y(t)=0$ and $a,b,\sigma,\eta>0$ and $\rho\in[-1,1]$. Furthermore we set
 
 $$\varphi(T) = f^{M}(0,T) + \frac{\sigma^{2}}{2a^{2}}\left(1-e^{-aT}\right)^{2} +\frac{\eta^{2}}{2b^{2}}\left(1-e^{-bT}\right)^{2} + \rho\frac{\sigma\eta}{ab}\left(1-e^{-aT}\right)\left(1-e^{-bT}\right)$$
 
@@ -49,7 +49,13 @@ where $f^{M}(0,T)$ are the instantaneous forward rates implied by the market and
 
 $$ V(t,T) = \frac{\sigma^{2}}{a^{2}}\left[T-t+\frac{2}{a}e^{-a(T-t)}-\frac{1}{2a}e^{-2a(T-t)}-\frac{3}{2a}\right] + \frac{\eta^{2}}{b^{2}}\left[T-t+\frac{2}{b}e^{-b(T-t)}-\frac{1}{2b}e^{-2b(T-t)}-\frac{3}{2b}\right] +2\rho\frac{\sigma\eta}{ab}\left[T-t+\frac{e^{-a(T-t)}-1}{a}+\frac{e^{-b(T-t)}-1}{b}-\frac{e^{-(a+b)(T-t)}-1}{a+b}\right]. $$
 
-In this case the ZCB prices are given by
+On a  discretized time grid $0=t_{0}<t_{1}<\cdots<t_{n-1}<t_{n}=T$ we can then simulated $x(t)$ and $y(t)$ with the following Euler scheme
+$$x(t_{i+1})=x(t_{i})-ax(t_{i})(t_{i+1}-t_{i})+\sigma\sqrt{t_{i+1}-t_{i}}\Tilde{z}_{i},$$
+$$y(t_{i+1})&=y(t_{i})-by(t_{i})(t_{i+1}-t_{i})+\eta\sqrt{t_{i+1}-t_{i}}\left(\rho\Tilde{w}_{i}+\sqrt{1-\rho^{2}}\Tilde{w}_{i}\right),$$
+for $i>0$ and $x(0)=y(0)=0$. Then we simulated $r(t)$ with
+$$r(t_{i})=x(t_{i})+y(t_{i})+\varphi(t_{i}).$$
+
+In the G2++ model the ZCB prices are given by
 
 $$P(t,T) = \exp\left[-\int_{t}^{T}\varphi(u)du - \frac{1-e^{-a(T-t)}}{a}x(t) -\frac{1-e^{-b(T-t)}}{b}y(t) + \frac{1}{2}V(t,T) \right].$$
 
