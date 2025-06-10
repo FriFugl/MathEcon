@@ -188,7 +188,7 @@ ax.bar(
 
 # Xticks
 ax.set_xticks(r + barWidth / 2)
-ax.set_xticklabels(["Power", "Chebyshev", "Legendre", "Laguerre", "Hermite"])
+ax.set_xticklabels(["Monomial", "Chebyshev", "Legendre", "Laguerre", "Hermite"])
 ax.tick_params(axis="x", which="both", bottom=False, top=False)
 
 # Legend and show
@@ -229,7 +229,7 @@ ax.bar(
 
 # Xticks
 ax.set_xticks(r + barWidth / 2)
-ax.set_xticklabels(["Power", "Chebyshev", "Legendre", "Laguerre", "Hermite"])
+ax.set_xticklabels(["Monomial", "Chebyshev", "Legendre", "Laguerre", "Hermite"])
 ax.tick_params(axis="x", which="both", bottom=False, top=False)
 
 # Legend and show
